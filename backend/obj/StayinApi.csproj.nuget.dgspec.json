@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\ecenu\\Desktop\\StayinApi - react\\StayinApi.csproj": {}
+    "C:\\Users\\ecenu\\OneDrive\\Belgeler\\GitHub\\BLM4538---StayIn-React\\backend\\StayinApi.csproj": {}
   },
   "projects": {
-    "C:\\Users\\ecenu\\Desktop\\StayinApi - react\\StayinApi.csproj": {
+    "C:\\Users\\ecenu\\OneDrive\\Belgeler\\GitHub\\BLM4538---StayIn-React\\backend\\StayinApi.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\ecenu\\Desktop\\StayinApi - react\\StayinApi.csproj",
+        "projectUniqueName": "C:\\Users\\ecenu\\OneDrive\\Belgeler\\GitHub\\BLM4538---StayIn-React\\backend\\StayinApi.csproj",
         "projectName": "StayinApi",
-        "projectPath": "C:\\Users\\ecenu\\Desktop\\StayinApi - react\\StayinApi.csproj",
+        "projectPath": "C:\\Users\\ecenu\\OneDrive\\Belgeler\\GitHub\\BLM4538---StayIn-React\\backend\\StayinApi.csproj",
         "packagesPath": "C:\\Users\\ecenu\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\ecenu\\Desktop\\StayinApi - react\\obj\\",
+        "outputPath": "C:\\Users\\ecenu\\OneDrive\\Belgeler\\GitHub\\BLM4538---StayIn-React\\backend\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

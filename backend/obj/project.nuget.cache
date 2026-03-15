@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "i0WM/3/6Vdc=",
+  "dgSpecHash": "7J7rNvptRkc=",
   "success": true,
-  "projectFilePath": "C:\\Users\\ecenu\\Desktop\\StayinApi - react\\StayinApi.csproj",
+  "projectFilePath": "C:\\Users\\ecenu\\OneDrive\\Belgeler\\GitHub\\BLM4538---StayIn-React\\backend\\StayinApi.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\ecenu\\.nuget\\packages\\azure.core\\1.38.0\\azure.core.1.38.0.nupkg.sha512",
     "C:\\Users\\ecenu\\.nuget\\packages\\azure.identity\\1.11.4\\azure.identity.1.11.4.nupkg.sha512",
