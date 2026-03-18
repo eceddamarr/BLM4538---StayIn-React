@@ -43,13 +43,8 @@ export default function BecomeHostScreen() {
 
   const handleNext = () => {
     if (step === 1) {
-      if (!formData.title || !formData.description) {
-        Alert.alert('Hata', 'Başlık ve açıklama gerekli');
-        return;
-      }
-    } else if (step === 2) {
-      if (!formData.price || !formData.city || !formData.district) {
-        Alert.alert('Hata', 'Fiyat ve adres bilgileri gerekli');
+      if (!formData.title || !formData.description || !formData.placeType) {
+        Alert.alert('Hata', 'Başlık, açıklama ve mekan türü seçimi gerekli');
         return;
       }
     }
@@ -115,6 +110,43 @@ export default function BecomeHostScreen() {
           <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>Temel Bilgileriniz</Text>
 
+            <Text style={styles.label}>Aşağıdakilerden hangisi yerinizi en iyi tanımlıyor?</Text>
+            <View style={styles.placeTypeGrid}>
+              {[
+                { label: 'Ev', icon: 'home' },
+                { label: 'Daire', icon: 'home-variant' },
+                { label: 'Ambar', icon: 'warehouse' },
+                { label: 'Oda-Kahvaltı', icon: 'bed' },
+                { label: 'Tekne', icon: 'ferry' },
+                { label: 'Kulübe', icon: 'tent' },
+                { label: 'Kamp Aracı', icon: 'caravan' },
+                { label: 'Casa Particular', icon: 'home-group' },
+              ].map((place) => (
+                <TouchableOpacity
+                  key={place.label}
+                  style={[
+                    styles.placeTypeButton,
+                    formData.placeType === place.label && styles.placeTypeButtonActive,
+                  ]}
+                  onPress={() => handleInputChange('placeType', place.label)}
+                >
+                  <MaterialCommunityIcons
+                    name={place.icon as any}
+                    size={24}
+                    color={formData.placeType === place.label ? '#ff5a5f' : '#8a8a8a'}
+                  />
+                  <Text
+                    style={[
+                      styles.placeTypeLabel,
+                      formData.placeType === place.label && styles.placeTypeLabelActive,
+                    ]}
+                  >
+                    {place.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
             <Text style={styles.label}>İlan Başlığı</Text>
             <TextInput
               style={styles.input}
@@ -161,7 +193,7 @@ export default function BecomeHostScreen() {
         {/* Step 2: Detaylar */}
         {step === 2 && (
           <View style={styles.stepContainer}>
-            <Text style={styles.stepTitle}>Detaylı Bilgiler</Text>
+            <Text style={styles.stepTitle}>Kapasite Bilgileri</Text>
 
             <View style={styles.row}>
               <View style={styles.col}>
@@ -208,39 +240,6 @@ export default function BecomeHostScreen() {
                 />
               </View>
             </View>
-
-            <Text style={styles.label}>Nightly Fiyatı (₺)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="2500"
-              keyboardType="decimal-pad"
-              value={formData.price}
-              onChangeText={(value) => handleInputChange('price', value)}
-            />
-
-            <Text style={styles.label}>Şehir</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="İstanbul"
-              value={formData.city}
-              onChangeText={(value) => handleInputChange('city', value)}
-            />
-
-            <Text style={styles.label}>İlçe</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Beyoğlu"
-              value={formData.district}
-              onChangeText={(value) => handleInputChange('district', value)}
-            />
-
-            <Text style={styles.label}>Cadde/Sokak</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Örnek Caddesi No:123"
-              value={formData.street}
-              onChangeText={(value) => handleInputChange('street', value)}
-            />
           </View>
         )}
 
@@ -252,18 +251,34 @@ export default function BecomeHostScreen() {
               Konuklarınız hangi olanaklara erişebilecek?
             </Text>
 
-            <View style={styles.amenitiesList}>
+            <View style={styles.amenitiesGrid}>
               {[
-                { icon: 'wifi', label: 'Wi-Fi' },
+                { icon: 'wifi', label: 'Wifi' },
+                { icon: 'television', label: 'TV' },
+                { icon: 'silverware-fork-knife', label: 'Mutfak' },
+                { icon: 'washing-machine', label: 'Çamaşır makinesi' },
+                { icon: 'parking', label: 'Binada ücretsiz otopark' },
+                { icon: 'currency-usd', label: 'Mülkte ücretli otopark' },
                 { icon: 'air-conditioner', label: 'Klima' },
                 { icon: 'waves', label: 'Havuz' },
+                { icon: 'sofa', label: 'Veranda' },
+                { icon: 'grill', label: 'Mangal' },
+                { icon: 'desk', label: 'Özel çalışma alanı' },
+                { icon: 'hot-tub', label: 'Jakuzi' },
+                { icon: 'billiards', label: 'Bilarido masası' },
                 { icon: 'fire', label: 'Şömine' },
-                { icon: 'mountain', label: 'Dağ Manzarası' },
-                { icon: 'water', label: 'Deniz Manzarası' },
+                { icon: 'piano', label: 'Piyano' },
+                { icon: 'table-furniture', label: 'Açık havada yemek alanı' },
+                { icon: 'dumbbell', label: 'Egzersiz ekipmanı' },
+                { icon: 'water', label: 'Göle erişim' },
+                { icon: 'beach', label: 'Plaja erişim' },
               ].map((amenity) => (
                 <TouchableOpacity
                   key={amenity.label}
-                  style={styles.amenityItem}
+                  style={[
+                    styles.amenityPill,
+                    formData.amenities.includes(amenity.label) && styles.amenityPillActive,
+                  ]}
                   onPress={() => {
                     const current = formData.amenities.split(',').filter(Boolean);
                     if (current.includes(amenity.label)) {
@@ -279,17 +294,22 @@ export default function BecomeHostScreen() {
                     }
                   }}
                 >
-                  <View
+                  {formData.amenities.includes(amenity.label) && (
+                    <Ionicons name="checkmark" size={16} color="#ff5a5f" style={styles.amenityCheckmark} />
+                  )}
+                  <MaterialCommunityIcons
+                    name={amenity.icon as any}
+                    size={18}
+                    color={formData.amenities.includes(amenity.label) ? '#ff5a5f' : '#8a8a8a'}
+                  />
+                  <Text
                     style={[
-                      styles.amenityCheckbox,
-                      formData.amenities.includes(amenity.label) && styles.amenityCheckboxActive,
+                      styles.amenityPillLabel,
+                      formData.amenities.includes(amenity.label) && styles.amenityPillLabelActive,
                     ]}
                   >
-                    {formData.amenities.includes(amenity.label) && (
-                      <Ionicons name="checkmark" size={16} color="#fff" />
-                    )}
-                  </View>
-                  <Text style={styles.amenityLabel}>{amenity.label}</Text>
+                    {amenity.label}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -308,7 +328,7 @@ export default function BecomeHostScreen() {
           )}
 
           <TouchableOpacity
-            style={[styles.nextButton, step > 1 && { marginLeft: 12 }]}
+            style={[styles.nextButton, step > 1 && { flex: 1 }]}
             onPress={step === 3 ? handleSubmit : handleNext}
             disabled={loading}
           >
@@ -440,6 +460,37 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: '#fff',
   },
+  placeTypeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  placeTypeButton: {
+    width: '48%',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeTypeButtonActive: {
+    backgroundColor: '#fff3f2',
+    borderColor: '#ff5a5f',
+  },
+  placeTypeLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#8a8a8a',
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  placeTypeLabelActive: {
+    color: '#ff5a5f',
+  },
   row: {
     flexDirection: 'row',
     gap: 12,
@@ -447,40 +498,38 @@ const styles = StyleSheet.create({
   col: {
     flex: 1,
   },
-  amenitiesList: {
+  amenitiesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
+    justifyContent: 'flex-start',
   },
-  amenityItem: {
-    width: '48%',
+  amenityPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    gap: 6,
     paddingHorizontal: 12,
+    paddingVertical: 8,
     backgroundColor: '#fff',
-    borderRadius: 10,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: '#e5e5e5',
   },
-  amenityCheckbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#e5e5e5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  amenityCheckboxActive: {
-    backgroundColor: '#ff5a5f',
+  amenityPillActive: {
+    backgroundColor: '#fff3f2',
     borderColor: '#ff5a5f',
   },
-  amenityLabel: {
+  amenityCheckmark: {
+    marginRight: 4,
+  },
+  amenityPillLabel: {
     fontSize: 13,
-    color: '#212121',
-    flex: 1,
+    fontWeight: '500',
+    color: '#8a8a8a',
+  },
+  amenityPillLabelActive: {
+    color: '#ff5a5f',
+    fontWeight: '600',
   },
   buttonContainer: {
     flexDirection: 'row',
