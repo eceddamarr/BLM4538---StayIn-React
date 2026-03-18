@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     ScrollView,
     StatusBar,
@@ -7,16 +7,37 @@ import {
     Text,
     TextInput,
     View,
+    ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomNav from '../components/BottomNav';
 import PropertyCard from '../components/PropertyCard';
 import { sampleProperties } from '../data/sampleProperties';
 import { Property } from '../types/property';
+import { api } from '../services/api';
 
 export default function Index() {
-  const [properties, setProperties] = useState<Property[]>(sampleProperties);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  // Fetch listings from API
+  useEffect(() => {
+    const fetchListings = async () => {
+      try {
+        setLoading(true);
+        const listings = await api.getListings();
+        setProperties(listings.length > 0 ? listings : sampleProperties);
+      } catch (error) {
+        console.error('Error loading listings:', error);
+        setProperties(sampleProperties);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchListings();
+  }, []);
 
   const handleFavoritePress = (propertyId: string) => {
     setProperties((prev) =>
@@ -57,21 +78,28 @@ export default function Index() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Popüler İlanlar</Text>
-            <Text style={styles.sectionCount}>{properties.length} ilan</Text>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#FF385C" />
+            <Text style={styles.loadingText}>İlanlar yükleniyor...</Text>
           </View>
+        ) : (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Popüler İlanlar</Text>
+              <Text style={styles.sectionCount}>{properties.length} ilan</Text>
+            </View>
 
-          {properties.map((property) => (
-            <PropertyCard
-              key={property.id}
-              property={property}
-              onPress={() => handlePropertyPress(property.id)}
-              onFavoritePress={() => handleFavoritePress(property.id)}
-            />
-          ))}
-        </View>
+            {properties.map((property) => (
+              <PropertyCard
+                key={property.id}
+                property={property}
+                onPress={() => handlePropertyPress(property.id)}
+                onFavoritePress={() => handleFavoritePress(property.id)}
+              />
+            ))}
+          </View>
+        )}
       </ScrollView>
 
       {/* Bottom Navigation */}
@@ -132,6 +160,17 @@ const styles = StyleSheet.create({
   },
   sectionCount: {
     fontSize: 14,
+    color: '#717171',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 300,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
     color: '#717171',
   },
 });

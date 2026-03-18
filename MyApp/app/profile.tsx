@@ -104,6 +104,20 @@ export default function ProfileScreen() {
             </View>
           </View>
 
+          <TouchableOpacity
+            style={styles.hostingCard}
+            onPress={() => router.push('/become-host' as never)}
+          >
+            <View style={styles.hostingContent}>
+              <MaterialCommunityIcons name="home-plus-outline" size={24} color="#ff5a5f" />
+              <View style={styles.hostingText}>
+                <Text style={styles.hostingLabel}>Ev Sahipliği Yapın</Text>
+                <Text style={styles.hostingSubtitle}>İlanınızı yayınlayın</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#cccccc" />
+            </View>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={20} color="#ff5a5f" />
             <Text style={styles.logoutButtonText}>Çıkış Yap</Text>
@@ -336,6 +350,34 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: '#e5e5e5',
+  },
+  hostingCard: {
+    marginTop: 16,
+    marginHorizontal: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
+    backgroundColor: '#fff',
+  },
+  hostingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  hostingText: {
+    flex: 1,
+  },
+  hostingLabel: {
+    fontSize: 15,
+    color: '#212121',
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  hostingSubtitle: {
+    fontSize: 13,
+    color: '#8a8a8a',
   },
   logoutButton: {
     flexDirection: 'row',
