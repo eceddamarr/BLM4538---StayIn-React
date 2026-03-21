@@ -1,6 +1,9 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
+import { useAuth } from '@/context/AuthContext';
+import { createListing, CreateListingDTO } from '@/services/listingService';
 import {
   SafeAreaView,
   ScrollView,
@@ -10,13 +13,39 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
-  Alert,
+  Image,
+  Modal,
 } from 'react-native';
 
 export default function BecomeHostScreen() {
   const router = useRouter();
+  const { token } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [alertModal, setAlertModal] = useState({
+    visible: false,
+    type: 'error' as 'error' | 'success',
+    title: '',
+    message: '',
+  });
+
+  const showAlert = (type: 'error' | 'success', title: string, message: string) => {
+    setAlertModal({ visible: true, type, title, message });
+  };
+
+  const handleExitConfirm = () => {
+    setShowExitModal(true);
+  };
+
+  const handleExitYes = () => {
+    setShowExitModal(false);
+    router.push('/');
+  };
+
+  const handleExitNo = () => {
+    setShowExitModal(false);
+  };
 
   const [formData, setFormData] = useState({
     title: '',
@@ -28,11 +57,16 @@ export default function BecomeHostScreen() {
     beds: '1',
     bathrooms: '1',
     price: '',
-    city: '',
-    district: '',
-    street: '',
     amenities: '',
+    AddressCountry: '',
+    AddressCity: '',
+    AddressDistrict: '',
+    AddressStreet: '',
+    AddressBuilding: '',
+    AddressPostalCode: '',
+    AddressRegion: '',
   });
+  const [photos, setPhotos] = useState<string[]>([]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -41,10 +75,56 @@ export default function BecomeHostScreen() {
     }));
   };
 
+  const handlePickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+        selectionLimit: 10 - photos.length,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const newPhotos = result.assets.map(asset => asset.uri);
+        const totalPhotos = photos.length + newPhotos.length;
+        
+        if (totalPhotos <= 10) {
+          setPhotos([...photos, ...newPhotos]);
+        } else {
+          showAlert('error', 'Hata', `Maksimum 10 fotoğraf yükleyebilirsiniz. ${10 - photos.length} fotoğraf boşluğu kaldı.`);
+        }
+      }
+    } catch {
+      showAlert('error', 'Hata', 'Fotoğraf seçilirken hata oluştu');
+    }
+  };
+
+  const handleRemovePhoto = (index: number) => {
+    setPhotos(photos.filter((_, i) => i !== index));
+  };
+
   const handleNext = () => {
     if (step === 1) {
       if (!formData.title || !formData.description || !formData.placeType) {
-        Alert.alert('Hata', 'Başlık, açıklama ve mekan türü seçimi gerekli');
+        showAlert('error', 'Hata', 'Başlık, açıklama ve mekan türü seçimi gerekli');
+        return;
+      }
+    }
+    if (step === 4) {
+      if (!formData.AddressCountry || !formData.AddressCity || !formData.AddressDistrict || !formData.AddressStreet) {
+        showAlert('error', 'Hata', 'Lütfen tam adres bilgisini girin');
+        return;
+      }
+    }
+    if (step === 5) {
+      if (photos.length < 3) {
+        showAlert('error', 'Hata', 'En az 3 fotoğraf yüklemek gerekli');
+        return;
+      }
+    }
+    if (step === 6) {
+      if (!formData.price) {
+        showAlert('error', 'Hata', 'Lütfen fiyat belirleyin');
         return;
       }
     }
@@ -52,18 +132,52 @@ export default function BecomeHostScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.amenities) {
-      Alert.alert('Hata', 'En az bir olanağı seçin');
+    if (!formData.price) {
+      showAlert('error', 'Hata', 'Lütfen fiyat belirleyin');
+      return;
+    }
+
+    if (!token) {
+      showAlert('error', 'Hata', 'Giriş yapmanız gerekiyor');
       return;
     }
 
     setLoading(true);
     try {
-      // TODO: API call to submit listing
-      Alert.alert('Başarı', 'İlanınız yayınlanmaya hazır!');
-      router.back();
+      // Form data'yı API DTO formatına çevir
+      const listingData = {
+        placeType: formData.placeType,
+        accommodationType: formData.accommodationType,
+        guests: parseInt(formData.guests) || 0,
+        bedrooms: parseInt(formData.bedrooms) || 0,
+        beds: parseInt(formData.beds) || 0,
+        bathrooms: parseInt(formData.bathrooms) || 0,
+        title: formData.title,
+        description: formData.description,
+        price: parseFloat(formData.price) || 0,
+        addressCountry: formData.AddressCountry,
+        addressCity: formData.AddressCity,
+        addressDistrict: formData.AddressDistrict,
+        addressStreet: formData.AddressStreet,
+        addressBuilding: formData.AddressBuilding || undefined,
+        addressPostalCode: formData.AddressPostalCode || undefined,
+        addressRegion: formData.AddressRegion || undefined,
+        amenities: formData.amenities ? formData.amenities.split(',').filter(Boolean) : [],
+        photoUrls: photos,
+      };
+
+      const result = await createListing(listingData, token);
+
+      if (result.success) {
+        showAlert('success', 'Başarı', 'İlanınız başarıyla yayınlandı!');
+        setTimeout(() => {
+          router.replace('/');
+        }, 1500);
+      } else {
+        showAlert('error', 'Hata', result.message);
+      }
     } catch (error) {
-      Alert.alert('Hata', 'İlan yayınlanırken hata oluştu');
+      showAlert('error', 'Hata', 'İlan yayınlanırken beklenmedik bir hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -71,10 +185,75 @@ export default function BecomeHostScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Exit Confirmation Modal */}
+      <Modal
+        visible={showExitModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowExitModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconContainer}>
+              <Ionicons name="warning-outline" size={48} color="#ff5a5f" />
+            </View>
+            <Text style={styles.modalTitle}>İlan Düzenlemekten Vazgeç</Text>
+            <Text style={styles.modalMessage}>
+              İlan düzenlemekten vazgeçmek istediğinize emin misiniz? Kaydetmeden ana sayfaya döneceksiniz.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalButtonCancel}
+                onPress={handleExitNo}
+              >
+                <Text style={styles.modalButtonCancelText}>Hayır</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalButtonConfirm}
+                onPress={handleExitYes}
+              >
+                <Text style={styles.modalButtonConfirmText}>Evet, Vazgeç</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* General Alert Modal */}
+      <Modal
+        visible={alertModal.visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setAlertModal({ ...alertModal, visible: false })}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconContainer}>
+              {alertModal.type === 'error' ? (
+                <Ionicons name="close-circle-outline" size={56} color="#ff5a5f" />
+              ) : (
+                <Ionicons name="checkmark-circle-outline" size={56} color="#34c759" />
+              )}
+            </View>
+            <Text style={styles.modalTitle}>{alertModal.title}</Text>
+            <Text style={styles.modalMessage}>{alertModal.message}</Text>
+            <TouchableOpacity
+              style={[
+                styles.modalButtonSingle,
+                alertModal.type === 'success' && styles.modalButtonSuccess,
+              ]}
+              onPress={() => setAlertModal({ ...alertModal, visible: false })}
+            >
+              <Text style={styles.modalButtonConfirmText}>Tamam</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={handleExitConfirm}>
             <Ionicons name="chevron-back" size={28} color="#212121" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Ev Sahipliği Yapın</Text>
@@ -83,7 +262,7 @@ export default function BecomeHostScreen() {
 
         {/* Progress Indicator */}
         <View style={styles.progressContainer}>
-          {[1, 2, 3].map((num) => (
+          {[1, 2, 3, 4, 5, 6].map((num) => (
             <View key={num} style={styles.progressItem}>
               <View
                 style={[
@@ -93,7 +272,7 @@ export default function BecomeHostScreen() {
               >
                 <Text style={styles.progressText}>{num}</Text>
               </View>
-              {num < 3 && (
+              {num < 6 && (
                 <View
                   style={[
                     styles.progressLine,
@@ -316,6 +495,168 @@ export default function BecomeHostScreen() {
           </View>
         )}
 
+        {/* Step 4: Adres Bilgileri */}
+        {step === 4 && (
+          <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>Adres Bilgileri</Text>
+            <Text style={styles.subtitle}>
+              Lütfen kalacağınız yerin tam adresini girin
+            </Text>
+
+            <Text style={styles.label}>Ülke</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="örn: Türkiye"
+              value={formData.AddressCountry}
+              onChangeText={(value) => handleInputChange('AddressCountry', value)}
+            />
+
+            <Text style={styles.label}>Bölge</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="örn: Marmara"
+              value={formData.AddressRegion}
+              onChangeText={(value) => handleInputChange('AddressRegion', value)}
+            />
+
+            <Text style={styles.label}>İl</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="örn: İstanbul"
+              value={formData.AddressCity}
+              onChangeText={(value) => handleInputChange('AddressCity', value)}
+            />
+
+            <Text style={styles.label}>İlçe</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="örn: Beyoğlu"
+              value={formData.AddressDistrict}
+              onChangeText={(value) => handleInputChange('AddressDistrict', value)}
+            />
+
+            <Text style={styles.label}>Sokak/Cadde/Mahalle</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="Sokak, cadde veya mahalle bilgisini girin. Örneğin: İstiklal Caddesi No: 45, Daire 5"
+              value={formData.AddressStreet}
+              onChangeText={(value) => handleInputChange('AddressStreet', value)}
+              multiline
+              numberOfLines={3}
+            />
+
+            <Text style={styles.label}>Bina/Bölüm Numarası</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="örn: No: 45"
+              value={formData.AddressBuilding}
+              onChangeText={(value) => handleInputChange('AddressBuilding', value)}
+            />
+
+            <Text style={styles.label}>Posta Kodu</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="örn: 34437"
+              value={formData.AddressPostalCode}
+              onChangeText={(value) => handleInputChange('AddressPostalCode', value)}
+            />
+          </View>
+        )}
+
+        {/* Step 5: Fotoğraf Yükleme */}
+        {step === 5 && (
+          <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>Fotoğraf Yükle</Text>
+            <Text style={styles.subtitle}>
+              En az 3 fotoğraf seçin (Maksimum 10)
+            </Text>
+
+            <TouchableOpacity
+              style={styles.uploadButton}
+              onPress={handlePickImage}
+            >
+              <MaterialCommunityIcons name="cloud-upload" size={32} color="#ff5a5f" />
+              <Text style={styles.uploadButtonText}>Fotoğraf Seç</Text>
+              <Text style={styles.uploadButtonSubtext}>{photos.length}/10 fotoğraf seçildi</Text>
+            </TouchableOpacity>
+
+            {photos.length > 0 && (
+              <View style={styles.photoListContainer}>
+                <Text style={styles.photoListTitle}>Seçilen Fotoğraflar</Text>
+                <View style={styles.photoList}>
+                  {photos.map((photo, index) => (
+                    <View key={index} style={styles.photoListItem}>
+                      <Image source={{ uri: photo }} style={styles.photoListImage} />
+                      <View style={styles.photoListInfo}>
+                        <Text style={styles.photoListItemNumber}>Fotoğraf {index + 1}</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.deleteButton}
+                        onPress={() => handleRemovePhoto(index)}
+                      >
+                        <Ionicons name="trash" size={20} color="#ff5a5f" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {photos.length < 3 && (
+              <View style={styles.warningBox}>
+                <Ionicons name="warning" size={18} color="#ff9500" />
+                <Text style={styles.warningText}>
+                  En az 3 fotoğraf yüklemek gerekli
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Step 6: Fiyat Belirleme */}
+        {step === 6 && (
+          <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>Fiyat Belirleyin</Text>
+            <Text style={styles.subtitle}>
+              Konuklarınız için gece başına fiyatı belirleyin
+            </Text>
+
+            <View style={styles.priceCard}>
+              <Text style={styles.label}>Gece Başına Fiyat (₺)</Text>
+              <View style={styles.priceInputContainer}>
+                <Text style={styles.currencySymbol}>₺</Text>
+                <TextInput
+                  style={styles.priceInput}
+                  placeholder="0"
+                  keyboardType="number-pad"
+                  value={formData.price}
+                  onChangeText={(value) => handleInputChange('price', value)}
+                />
+              </View>
+              <Text style={styles.priceInfo}>
+                Listelemenizin başarılı olması için rekabetçi bir fiyat belirlemek önemlidir.
+              </Text>
+            </View>
+
+            {formData.price && (
+              <View style={styles.priceCalculation}>
+                <View style={styles.calculationRow}>
+                  <Text style={styles.calculationLabel}>1 Gece</Text>
+                  <Text style={styles.calculationValue}>₺{parseInt(formData.price).toLocaleString('tr-TR')}</Text>
+                </View>
+                <View style={styles.calculationRow}>
+                  <Text style={styles.calculationLabel}>3 Gece</Text>
+                  <Text style={styles.calculationValue}>₺{(parseInt(formData.price) * 3).toLocaleString('tr-TR')}</Text>
+                </View>
+                <View style={styles.calculationRow}>
+                  <Text style={styles.calculationLabel}>7 Gece</Text>
+                  <Text style={styles.calculationValue}>₺{(parseInt(formData.price) * 7).toLocaleString('tr-TR')}</Text>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Navigation Buttons */}
         <View style={styles.buttonContainer}>
           {step > 1 && (
@@ -329,14 +670,14 @@ export default function BecomeHostScreen() {
 
           <TouchableOpacity
             style={[styles.nextButton, step > 1 && { flex: 1 }]}
-            onPress={step === 3 ? handleSubmit : handleNext}
+            onPress={step === 6 ? handleSubmit : handleNext}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.nextButtonText}>
-                {step === 3 ? 'İlanı Yayınla' : 'Devam'}
+                {step === 6 ? 'İlanı Yayınla' : 'Devam'}
               </Text>
             )}
           </TouchableOpacity>
@@ -561,5 +902,249 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: '700',
+  },
+  uploadButton: {
+    backgroundColor: '#fff3f2',
+    borderWidth: 2,
+    borderColor: '#ff5a5f',
+    borderRadius: 12,
+    borderStyle: 'dashed',
+    paddingVertical: 32,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 16,
+  },
+  uploadButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ff5a5f',
+    marginTop: 8,
+  },
+  uploadButtonSubtext: {
+    fontSize: 12,
+    color: '#8a8a8a',
+    marginTop: 4,
+  },
+  photoListContainer: {
+    marginTop: 20,
+  },
+  photoListTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#212121',
+    marginBottom: 12,
+  },
+  photoList: {
+    gap: 8,
+  },
+  photoListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+  },
+  photoListImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  photoListInfo: {
+    flex: 1,
+  },
+  photoListItemNumber: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#212121',
+  },
+  deleteButton: {
+    padding: 8,
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#fff3f2',
+    borderRadius: 10,
+    padding: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#ff9500',
+    marginTop: 16,
+  },
+  warningText: {
+    fontSize: 13,
+    color: '#ff9500',
+    fontWeight: '600',
+    flex: 1,
+  },
+  priceCard: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 16,
+  },
+  priceInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9f9f9',
+    borderWidth: 2,
+    borderColor: '#ff5a5f',
+    borderRadius: 10,
+    marginVertical: 10,
+    paddingHorizontal: 12,
+  },
+  currencySymbol: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#ff5a5f',
+    marginRight: 8,
+  },
+  priceInput: {
+    flex: 1,
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#212121',
+    paddingVertical: 12,
+  },
+  priceInfo: {
+    fontSize: 12,
+    color: '#8a8a8a',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  priceInfoBox: {
+    backgroundColor: '#fff3f2',
+    borderRadius: 10,
+    padding: 12,
+    marginVertical: 16,
+  },
+  priceInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  priceInfoTextContainer: {
+    flex: 1,
+  },
+  priceInfoTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#212121',
+    marginBottom: 4,
+  },
+  priceInfoText: {
+    fontSize: 13,
+    color: '#8a8a8a',
+    lineHeight: 18,
+  },
+  priceCalculation: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+    borderRadius: 10,
+    padding: 16,
+    marginVertical: 16,
+  },
+  calculationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  calculationLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#8a8a8a',
+  },
+  calculationValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#212121',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalIconContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#212121',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  modalMessage: {
+    fontSize: 15,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButtonCancel: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#e5e5e5',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  modalButtonCancelText: {
+    color: '#666',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  modalButtonConfirm: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#ff5a5f',
+    alignItems: 'center',
+  },
+  modalButtonConfirmText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  modalButtonSingle: {
+    width: '100%',
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#ff5a5f',
+    alignItems: 'center',
+  },
+  modalButtonSuccess: {
+    backgroundColor: '#34c759',
   },
 });

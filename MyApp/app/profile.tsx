@@ -4,8 +4,6 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
-  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -13,6 +11,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Modal,
 } from 'react-native';
 import BottomNav from '../components/BottomNav';
 
@@ -25,9 +24,21 @@ export default function ProfileScreen() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [alertModal, setAlertModal] = useState({
+    visible: false,
+    type: 'error' as 'error' | 'success',
+    title: '',
+    message: '',
+  });
+
+  const showAlert = (type: 'error' | 'success', title: string, message: string) => {
+    setAlertModal({ visible: true, type, title, message });
+  };
+
   async function handleLogin() {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Hata', 'E-posta ve şifre gerekli.');
+      showAlert('error', 'Hata', 'E-posta ve şifre gerekli.');
       return;
     }
     setSubmitting(true);
@@ -35,32 +46,20 @@ export default function ProfileScreen() {
       await login({ email: email.trim(), password });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Giriş başarısız.';
-      Alert.alert('Giriş Hatası', message);
+      showAlert('error', 'Giriş Hatası', message);
     } finally {
       setSubmitting(false);
     }
   }
 
   async function handleLogout() {
-    if (Platform.OS === 'web') {
-      const confirmed = window.confirm('Hesabınızdan çıkmak istediğinize emin misiniz?');
-      if (confirmed) {
-        await logout();
-        router.replace('/');
-      }
-      return;
-    }
-    Alert.alert('Çıkış Yap', 'Hesabınızdan çıkmak istediğinize emin misiniz?', [
-      { text: 'İptal', style: 'cancel' },
-      {
-        text: 'Çıkış Yap',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-          router.replace('/');
-        },
-      },
-    ]);
+    setShowLogoutModal(true);
+  }
+
+  async function confirmLogout() {
+    setShowLogoutModal(false);
+    await logout();
+    router.replace('/');
   }
 
   if (isLoading) {
@@ -75,6 +74,71 @@ export default function ProfileScreen() {
   if (user) {
     return (
       <SafeAreaView style={styles.container}>
+        {/* Logout Confirmation Modal */}
+        <Modal
+          visible={showLogoutModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowLogoutModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalIconContainer}>
+                <Ionicons name="log-out-outline" size={48} color="#ff5a5f" />
+              </View>
+              <Text style={styles.modalTitle}>Çıkış Yap</Text>
+              <Text style={styles.modalMessage}>
+                Hesabınızdan çıkmak istediğinize emin misiniz?
+              </Text>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalButtonCancel}
+                  onPress={() => setShowLogoutModal(false)}
+                >
+                  <Text style={styles.modalButtonCancelText}>İptal</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalButtonConfirm}
+                  onPress={confirmLogout}
+                >
+                  <Text style={styles.modalButtonConfirmText}>Çıkış Yap</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* General Alert Modal */}
+        <Modal
+          visible={alertModal.visible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setAlertModal({ ...alertModal, visible: false })}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalIconContainer}>
+                {alertModal.type === 'error' ? (
+                  <Ionicons name="close-circle-outline" size={56} color="#ff5a5f" />
+                ) : (
+                  <Ionicons name="checkmark-circle-outline" size={56} color="#34c759" />
+                )}
+              </View>
+              <Text style={styles.modalTitle}>{alertModal.title}</Text>
+              <Text style={styles.modalMessage}>{alertModal.message}</Text>
+              <TouchableOpacity
+                style={[
+                  styles.modalButtonSingle,
+                  alertModal.type === 'success' && styles.modalButtonSuccess,
+                ]}
+                onPress={() => setAlertModal({ ...alertModal, visible: false })}
+              >
+                <Text style={styles.modalButtonConfirmText}>Tamam</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <View style={styles.logoWrapper}>
             <View style={styles.avatarCircle}>
@@ -131,6 +195,37 @@ export default function ProfileScreen() {
   // Giriş yapılmamış: login ekranı
   return (
     <SafeAreaView style={styles.container}>
+      {/* General Alert Modal */}
+      <Modal
+        visible={alertModal.visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setAlertModal({ ...alertModal, visible: false })}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconContainer}>
+              {alertModal.type === 'error' ? (
+                <Ionicons name="close-circle-outline" size={56} color="#ff5a5f" />
+              ) : (
+                <Ionicons name="checkmark-circle-outline" size={56} color="#34c759" />
+              )}
+            </View>
+            <Text style={styles.modalTitle}>{alertModal.title}</Text>
+            <Text style={styles.modalMessage}>{alertModal.message}</Text>
+            <TouchableOpacity
+              style={[
+                styles.modalButtonSingle,
+                alertModal.type === 'success' && styles.modalButtonSuccess,
+              ]}
+              onPress={() => setAlertModal({ ...alertModal, visible: false })}
+            >
+              <Text style={styles.modalButtonConfirmText}>Tamam</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.logoWrapper}>
           <MaterialCommunityIcons name="home" size={56} color="#ff5a5f" />
@@ -144,7 +239,7 @@ export default function ProfileScreen() {
             <MaterialCommunityIcons name="email-outline" size={19} color="#8a8a8a" />
             <TextInput
               style={styles.input}
-              placeholder="örnek@email.com"
+              placeholder="abc@email.com"
               placeholderTextColor="#ababab"
               keyboardType="email-address"
               autoCapitalize="none"
@@ -396,5 +491,83 @@ const styles = StyleSheet.create({
     color: '#ff5a5f',
     fontSize: 16,
     fontWeight: '700',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalIconContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#212121',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  modalMessage: {
+    fontSize: 15,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButtonCancel: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#e5e5e5',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  modalButtonCancelText: {
+    color: '#666',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  modalButtonConfirm: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#ff5a5f',
+    alignItems: 'center',
+  },
+  modalButtonConfirmText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  modalButtonSingle: {
+    width: '100%',
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#ff5a5f',
+    alignItems: 'center',
+  },
+  modalButtonSuccess: {
+    backgroundColor: '#34c759',
   },
 });

@@ -14,7 +14,7 @@ import BottomNav from '../components/BottomNav';
 import PropertyCard from '../components/PropertyCard';
 import { sampleProperties } from '../data/sampleProperties';
 import { Property } from '../types/property';
-import { api } from '../services/api';
+import { getAllListings } from '../services/listingService';
 
 export default function Index() {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -26,7 +26,7 @@ export default function Index() {
     const fetchListings = async () => {
       try {
         setLoading(true);
-        const listings = await api.getListings();
+        const listings = await getAllListings();
         setProperties(listings.length > 0 ? listings : sampleProperties);
       } catch (error) {
         console.error('Error loading listings:', error);
