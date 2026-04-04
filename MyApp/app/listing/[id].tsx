@@ -20,7 +20,7 @@ import DatePicker from 'react-native-ui-datepicker';
 import dayjs from 'dayjs';
 import 'dayjs/locale/tr';
 import { useAuth } from '@/context/AuthContext';
-import { getListingById, createReservation, ReservationDTO } from '@/services/listingService';
+import { getListingById, createReservation, ReservationDTO, addToFavorites, removeFromFavorites, checkIsFavorite } from '@/services/listingService';
 
 dayjs.locale('tr');
 const isWeb = Platform.OS === 'web';
@@ -63,6 +63,8 @@ export default function ListingDetailScreen() {
   const [showReservationModal, setShowReservationModal] = useState(false);
   const [reservationLoading, setReservationLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [reservationData, setReservationData] = useState({
     checkIn: '',
     nights: 1,
@@ -99,6 +101,20 @@ export default function ListingDetailScreen() {
       setLoading(true);
       const data = await getListingById(parseInt(id as string));
       setListing(data);
+
+      // İlan favorilerde mi kontrol et
+      if (user && token) {
+        try {
+          const listingId = parseInt(id as string);
+          const favorite = await checkIsFavorite(listingId.toString(), token);
+          setIsFavorite(favorite);
+        } catch (error) {
+          console.error('Error checking favorite status:', error);
+          setIsFavorite(false);
+        }
+      } else {
+        setIsFavorite(false);
+      }
     } catch (error) {
       console.error('Error fetching listing detail:', error);
       Alert.alert('Hata', 'İlan yüklenirken hata oluştu');
@@ -113,6 +129,38 @@ export default function ListingDetailScreen() {
       return;
     }
     setShowReservationModal(true);
+  };
+
+  const handleFavoritePress = async () => {
+    // Giriş kontrolü
+    if (!user || !token) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    try {
+      const listingId = id as string;
+      if (isFavorite) {
+        // Favorilerden çıkar
+        const result = await removeFromFavorites(listingId, token);
+        if (result.success) {
+          setIsFavorite(false);
+        } else {
+          Alert.alert('Hata', result.message);
+        }
+      } else {
+        // Favorilere ekle
+        const result = await addToFavorites(listingId, token);
+        if (result.success) {
+          setIsFavorite(true);
+        } else {
+          Alert.alert('Hata', result.message);
+        }
+      }
+    } catch (error) {
+      Alert.alert('Hata', 'İşlem gerçekleştirilemedi');
+      console.error('Favorite error:', error);
+    }
   };
 
   const submitReservation = async () => {
@@ -241,6 +289,13 @@ export default function ListingDetailScreen() {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.push('/')} style={styles.headerButton}>
           <Ionicons name="arrow-back" size={24} color="#222" />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={handleFavoritePress} style={styles.headerButton}>
+          <Ionicons
+            name={isFavorite ? 'heart' : 'heart-outline'}
+            size={24}
+            color={isFavorite ? '#FF385C' : '#222'}
+          />
         </TouchableOpacity>
       </View>
 
@@ -578,6 +633,40 @@ export default function ListingDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Login Modal */}
+      <Modal
+        visible={showLoginModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowLoginModal(false)}
+      >
+        <View style={styles.loginModalOverlay}>
+          <View style={styles.loginModalContent}>
+            <Text style={styles.loginModalTitle}>Giriş Yapmanız Gerekiyor</Text>
+            <Text style={styles.loginModalMessage}>
+              Favorilerini yönetmek için hesabınıza giriş yapmanız gerekiyor
+            </Text>
+            <View style={styles.loginModalButtons}>
+              <TouchableOpacity
+                style={styles.loginModalCancelButton}
+                onPress={() => setShowLoginModal(false)}
+              >
+                <Text style={styles.loginModalCancelButtonText}>İptal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.loginModalLoginButton}
+                onPress={() => {
+                  setShowLoginModal(false);
+                  router.push('/login');
+                }}
+              >
+                <Text style={styles.loginModalLoginButtonText}>Giriş Yap</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -620,7 +709,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: 'row',
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     zIndex: 100,
   },
@@ -1005,5 +1094,66 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  loginModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loginModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    marginHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  loginModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#222',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  loginModalMessage: {
+    fontSize: 16,
+    color: '#717171',
+    marginBottom: 20,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  loginModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  loginModalCancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#EBEBEB',
+    backgroundColor: '#F7F7F7',
+    alignItems: 'center',
+  },
+  loginModalCancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#222',
+  },
+  loginModalLoginButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#FF385C',
+    alignItems: 'center',
+  },
+  loginModalLoginButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

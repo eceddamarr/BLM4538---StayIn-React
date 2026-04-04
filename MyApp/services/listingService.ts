@@ -116,3 +116,86 @@ export async function createReservation(
     };
   }
 }
+
+// Add listing to favorites
+export async function addToFavorites(
+  listingId: string | number,
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const result = await request<{ message: string }>(
+      `/Favorites/${listingId}`,
+      {
+        method: 'POST',
+      },
+      token
+    );
+
+    return { success: true, message: result.message || 'İlan favorilere eklendi' };
+  } catch (error) {
+    console.error('Error adding to favorites:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Favorilere eklenemedi'
+    };
+  }
+}
+
+// Remove listing from favorites
+export async function removeFromFavorites(
+  listingId: string | number,
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const result = await request<{ message: string }>(
+      `/Favorites/${listingId}`,
+      {
+        method: 'DELETE',
+      },
+      token
+    );
+
+    return { success: true, message: result.message || 'İlan favorilerden çıkarıldı' };
+  } catch (error) {
+    console.error('Error removing from favorites:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Favorilerden çıkarılamadı'
+    };
+  }
+}
+
+// Get user's favorite listings
+export async function getUserFavorites(
+  token: string
+): Promise<any[]> {
+  try {
+    const result = await request<{ favorites: any[] }>(
+      '/Favorites',
+      {},
+      token
+    );
+    return result.favorites || [];
+  } catch (error) {
+    console.error('Error fetching favorites:', error);
+    return [];
+  }
+}
+
+// Check if a specific listing is favorited
+export async function checkIsFavorite(
+  listingId: string | number,
+  token: string
+): Promise<boolean> {
+  try {
+    const result = await request<{ isFavorite: boolean }>(
+      `/Favorites/check/${listingId}`,
+      {},
+      token
+    );
+    return result.isFavorite || false;
+  } catch (error) {
+    console.error('Error checking favorite status:', error);
+    return false;
+  }
+}
