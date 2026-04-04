@@ -67,6 +67,26 @@ export async function getListingById(id: number): Promise<any> {
   }
 }
 
+// Get my listing details (for editing)
+export async function getMyListingDetail(
+  listingId: number,
+  token: string
+): Promise<any> {
+  try {
+    // İlk olarak tüm ilanlarımızı al
+    const listings = await getMyListings(token);
+    // İstenen ilanı bul
+    const listing = listings.find(l => l.id === listingId);
+    if (!listing) {
+      throw new Error('İlan bulunamadı');
+    }
+    return listing;
+  } catch (error) {
+    console.error('Error fetching my listing detail:', error);
+    throw error;
+  }
+}
+
 // Create new listing
 export async function createListing(
   data: CreateListingDTO,
@@ -197,5 +217,133 @@ export async function checkIsFavorite(
   } catch (error) {
     console.error('Error checking favorite status:', error);
     return false;
+  }
+}
+
+// Get user's listings (active)
+export async function getMyListings(token: string): Promise<any[]> {
+  try {
+    const result = await request<{ listings: any[] }>(
+      '/MyListings',
+      {},
+      token
+    );
+    return result.listings || [];
+  } catch (error) {
+    console.error('Error fetching my listings:', error);
+    return [];
+  }
+}
+
+// Get user's archived listings
+export async function getArchivedListings(token: string): Promise<any[]> {
+  try {
+    const result = await request<{ listings: any[] }>(
+      '/MyListings/archived',
+      {},
+      token
+    );
+    return result.listings || [];
+  } catch (error) {
+    console.error('Error fetching archived listings:', error);
+    return [];
+  }
+}
+
+// Update listing
+export async function updateListing(
+  listingId: string | number,
+  data: CreateListingDTO,
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const result = await request<{ message: string }>(
+      `/MyListings/${listingId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      },
+      token
+    );
+
+    return { success: true, message: result.message || 'İlan başarıyla güncellendi' };
+  } catch (error) {
+    console.error('Error updating listing:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'İlan güncellenemedi'
+    };
+  }
+}
+
+// Delete listing
+export async function deleteListing(
+  listingId: string | number,
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const result = await request<{ message: string }>(
+      `/MyListings/${listingId}`,
+      {
+        method: 'DELETE',
+      },
+      token
+    );
+
+    return { success: true, message: result.message || 'İlan başarıyla silindi' };
+  } catch (error) {
+    console.error('Error deleting listing:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'İlan silinemedi'
+    };
+  }
+}
+
+// Archive listing
+export async function archiveListing(
+  listingId: string | number,
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const result = await request<{ message: string }>(
+      `/MyListings/${listingId}/archive`,
+      {
+        method: 'POST',
+      },
+      token
+    );
+
+    return { success: true, message: result.message || 'İlan arşivlendi' };
+  } catch (error) {
+    console.error('Error archiving listing:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'İlan arşivlenemedi'
+    };
+  }
+}
+
+// Unarchive listing
+export async function unarchiveListing(
+  listingId: string | number,
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const result = await request<{ message: string }>(
+      `/MyListings/${listingId}/unarchive`,
+      {
+        method: 'POST',
+      },
+      token
+    );
+
+    return { success: true, message: result.message || 'İlan arşivden çıkarıldı' };
+  } catch (error) {
+    console.error('Error unarchiving listing:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'İlan arşivden çıkarılamadı'
+    };
   }
 }

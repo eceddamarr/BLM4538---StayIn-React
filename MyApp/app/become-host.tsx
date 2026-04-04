@@ -1,9 +1,9 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import React, { useState, useEffect } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/context/AuthContext';
-import { createListing, CreateListingDTO } from '@/services/listingService';
+import { createListing, CreateListingDTO, getMyListingDetail, updateListing } from '@/services/listingService';
 import { uploadPhotos } from '@/services/uploadService';
 import {
   SafeAreaView,
@@ -20,9 +20,11 @@ import {
 
 export default function BecomeHostScreen() {
   const router = useRouter();
+  const { editId } = useLocalSearchParams();
   const { token } = useAuth();
   const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(!!editId); // editId varsa başta loading true
+  const [initialLoading, setInitialLoading] = useState(true);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [showExitModal, setShowExitModal] = useState(false);
   const [alertModal, setAlertModal] = useState({
@@ -35,6 +37,58 @@ export default function BecomeHostScreen() {
   const showAlert = (type: 'error' | 'success', title: string, message: string) => {
     setAlertModal({ visible: true, type, title, message });
   };
+
+  // editId varsa ilanı yükle
+  useEffect(() => {
+    const loadListingData = async () => {
+      if (!editId || !token) {
+        console.log('No editId or token:', { editId, token });
+        setInitialLoading(false);
+        return;
+      }
+
+      try {
+        console.log('Loading listing with editId:', editId);
+        const listingId = parseInt(editId as string, 10);
+        if (isNaN(listingId)) {
+          throw new Error('Invalid listing ID');
+        }
+        const listingData = await getMyListingDetail(listingId, token);
+        console.log('Loaded listing data:', listingData);
+        if (listingData) {
+          // Form fieldlarını doldur (undefined değerleri handle et)
+          setFormData({
+            title: listingData.title || '',
+            description: listingData.description || '',
+            placeType: listingData.placeType || 'Daire',
+            accommodationType: listingData.accommodationType || 'Bütün mekan',
+            guests: (listingData.guests || 2).toString(),
+            bedrooms: (listingData.bedrooms || 1).toString(),
+            beds: (listingData.beds || 1).toString(),
+            bathrooms: (listingData.bathrooms || 1).toString(),
+            price: (listingData.price || 0).toString(),
+            amenities: Array.isArray(listingData.amenities) ? listingData.amenities.join(', ') : '',
+            AddressCountry: listingData.address?.addressCountry || '',
+            AddressCity: listingData.address?.addressCity || '',
+            AddressDistrict: listingData.address?.addressDistrict || '',
+            AddressStreet: listingData.address?.addressStreet || '',
+            AddressBuilding: listingData.address?.addressBuilding || '',
+            AddressPostalCode: listingData.address?.addressPostalCode || '',
+            AddressRegion: listingData.address?.addressRegion || '',
+          });
+          setExistingPhotos(listingData.photoUrls || []);
+        }
+      } catch (error) {
+        console.error('Error loading listing:', error);
+        showAlert('error', 'Hata', 'İlan yüklenirken hata oluştu');
+      } finally {
+        setInitialLoading(false);
+        setLoading(false);
+      }
+    };
+
+    loadListingData();
+  }, [editId, token]);
 
   const handleExitConfirm = () => {
     setShowExitModal(true);
@@ -69,6 +123,7 @@ export default function BecomeHostScreen() {
     AddressRegion: '',
   });
   const [photos, setPhotos] = useState<string[]>([]);
+  const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -119,8 +174,12 @@ export default function BecomeHostScreen() {
       }
     }
     if (step === 5) {
-      if (photos.length < 3) {
-        showAlert('error', 'Hata', 'En az 3 fotoğraf yüklemek gerekli');
+      const totalPhotos = existingPhotos.length + photos.length;
+      const minRequired = editId ? 1 : 3; // Düzenle modunda yalnızca 1 fotoğraf gerekli
+      if (totalPhotos < minRequired) {
+        showAlert('error', 'Hata', editId
+          ? 'En az 1 fotoğraf gerekli'
+          : 'En az 3 fotoğraf yüklemek gerekli');
         return;
       }
     }
@@ -144,20 +203,29 @@ export default function BecomeHostScreen() {
       return;
     }
 
-    if (photos.length < 3) {
-      showAlert('error', 'Hata', 'En az 3 fotoğraf yüklemek gerekli');
+    const totalPhotos = existingPhotos.length + photos.length;
+    const minRequired = editId ? 1 : 3;
+    if (totalPhotos < minRequired) {
+      showAlert('error', 'Hata', editId
+        ? 'En az 1 fotoğraf gerekli'
+        : 'En az 3 fotoğraf yüklemek gerekli');
       return;
     }
 
     setLoading(true);
     try {
-      // Upload photos to server
-      showAlert('success', 'Yükleniyor', 'Fotoğraflar yükleniyor...');
-      const photoUrls = await uploadPhotos(photos, token, (current, total) => {
-        setUploadProgress({ current, total });
-      });
+      let allPhotoUrls = [...existingPhotos]; // Var olan fotoğraflar
 
-      // Fotoğraflar yüklendikten sonra ilan oluştur
+      // Sadece yeni Photos varsa yükle
+      if (photos.length > 0) {
+        showAlert('success', 'Yükleniyor', 'Fotoğraflar yükleniyor...');
+        const newPhotoUrls = await uploadPhotos(photos, token, (current, total) => {
+          setUploadProgress({ current, total });
+        });
+        allPhotoUrls = [...existingPhotos, ...newPhotoUrls];
+      }
+
+      // İlan verilerini hazırla
       const listingData = {
         placeType: formData.placeType,
         accommodationType: formData.accommodationType,
@@ -176,22 +244,30 @@ export default function BecomeHostScreen() {
         addressPostalCode: formData.AddressPostalCode || undefined,
         addressRegion: formData.AddressRegion || undefined,
         amenities: formData.amenities ? formData.amenities.split(',').filter(Boolean) : [],
-        photoUrls: photoUrls, // Yüklenen fotoğrafların URL'lerini kullan
+        photoUrls: allPhotoUrls,
       };
 
-      const result = await createListing(listingData, token);
+      let result;
+      if (editId) {
+        // Var olan ilanı güncelle
+        const listingId = parseInt(editId as string, 10);
+        result = await updateListing(listingId, listingData, token);
+      } else {
+        // Yeni ilan oluştur
+        result = await createListing(listingData, token);
+      }
 
       if (result.success) {
-        showAlert('success', 'Başarı', 'İlanınız başarıyla yayınlandı!');
+        showAlert('success', 'Başarı', editId ? 'İlanınız başarıyla güncellendi!' : 'İlanınız başarıyla yayınlandı!');
         setTimeout(() => {
-          router.replace('/');
+          router.replace('/my-listings');
         }, 1500);
       } else {
         showAlert('error', 'Hata', result.message);
       }
     } catch (error) {
-      console.error('Listing creation error:', error);
-      showAlert('error', 'Hata', 'İlan yayınlanırken beklenmedik bir hata oluştu');
+      console.error('Listing error:', error);
+      showAlert('error', 'Hata', 'İlan işlemi sırasında bir hata oluştu');
     } finally {
       setLoading(false);
       setUploadProgress({ current: 0, total: 0 });
@@ -244,19 +320,16 @@ export default function BecomeHostScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalIconContainer}>
-              {alertModal.type === 'error' ? (
-                <Ionicons name="close-circle-outline" size={56} color="#ff5a5f" />
-              ) : (
-                <Ionicons name="checkmark-circle-outline" size={56} color="#34c759" />
-              )}
+              <Ionicons
+                name={alertModal.type === 'success' ? 'checkmark-circle' : 'alert-circle'}
+                size={48}
+                color={alertModal.type === 'success' ? '#34C759' : '#ff5a5f'}
+              />
             </View>
             <Text style={styles.modalTitle}>{alertModal.title}</Text>
             <Text style={styles.modalMessage}>{alertModal.message}</Text>
             <TouchableOpacity
-              style={[
-                styles.modalButtonSingle,
-                alertModal.type === 'success' && styles.modalButtonSuccess,
-              ]}
+              style={styles.modalButtonConfirm}
               onPress={() => setAlertModal({ ...alertModal, visible: false })}
             >
               <Text style={styles.modalButtonConfirmText}>Tamam</Text>
@@ -265,7 +338,14 @@ export default function BecomeHostScreen() {
         </View>
       </Modal>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      {/* Loading State */}
+      {initialLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#ff5a5f" />
+          <Text style={styles.loadingText}>İlan yükleniyor...</Text>
+        </View>
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleExitConfirm}>
@@ -583,8 +663,27 @@ export default function BecomeHostScreen() {
           <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>Fotoğraf Yükle</Text>
             <Text style={styles.subtitle}>
-              En az 3 fotoğraf seçin (Maksimum 10)
+              {editId
+                ? `Mevcut ${existingPhotos.length} fotoğraf var. Daha fazla eklemek için (maksimum 10)`
+                : 'En az 3 fotoğraf seçin (Maksimum 10)'}
             </Text>
+
+            {/* Mevcut Fotoğraflar */}
+            {existingPhotos.length > 0 && (
+              <View style={styles.photoListContainer}>
+                <Text style={styles.photoListTitle}>Mevcut Fotoğraflar</Text>
+                <View style={styles.photoList}>
+                  {existingPhotos.map((photo, index) => (
+                    <View key={`existing-${index}`} style={styles.photoListItem}>
+                      <Image source={{ uri: photo }} style={styles.photoListImage} />
+                      <View style={styles.photoListInfo}>
+                        <Text style={styles.photoListItemNumber}>Fotoğraf {index + 1}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
 
             <TouchableOpacity
               style={styles.uploadButton}
@@ -592,18 +691,18 @@ export default function BecomeHostScreen() {
             >
               <MaterialCommunityIcons name="cloud-upload" size={32} color="#ff5a5f" />
               <Text style={styles.uploadButtonText}>Fotoğraf Seç</Text>
-              <Text style={styles.uploadButtonSubtext}>{photos.length}/10 fotoğraf seçildi</Text>
+              <Text style={styles.uploadButtonSubtext}>{existingPhotos.length + photos.length}/10 fotoğraf</Text>
             </TouchableOpacity>
 
             {photos.length > 0 && (
               <View style={styles.photoListContainer}>
-                <Text style={styles.photoListTitle}>Seçilen Fotoğraflar</Text>
+                <Text style={styles.photoListTitle}>Yeni Fotoğraflar</Text>
                 <View style={styles.photoList}>
                   {photos.map((photo, index) => (
-                    <View key={index} style={styles.photoListItem}>
+                    <View key={`new-${index}`} style={styles.photoListItem}>
                       <Image source={{ uri: photo }} style={styles.photoListImage} />
                       <View style={styles.photoListInfo}>
-                        <Text style={styles.photoListItemNumber}>Fotoğraf {index + 1}</Text>
+                        <Text style={styles.photoListItemNumber}>Yeni {index + 1}</Text>
                       </View>
                       <TouchableOpacity
                         style={styles.deleteButton}
@@ -617,11 +716,13 @@ export default function BecomeHostScreen() {
               </View>
             )}
 
-            {photos.length < 3 && (
+            {(existingPhotos.length + photos.length) < (editId ? 1 : 3) && (
               <View style={styles.warningBox}>
                 <Ionicons name="warning" size={18} color="#ff9500" />
                 <Text style={styles.warningText}>
-                  En az 3 fotoğraf yüklemek gerekli
+                  {editId
+                    ? 'En az 1 fotoğraf gerekli'
+                    : 'En az 3 fotoğraf yüklemek gerekli'}
                 </Text>
               </View>
             )}
@@ -699,12 +800,13 @@ export default function BecomeHostScreen() {
               </View>
             ) : (
               <Text style={styles.nextButtonText}>
-                {step === 6 ? 'İlanı Yayınla' : 'Devam'}
+                {step === 6 ? (editId ? 'Güncelle' : 'İlanı Yayınla') : 'Devam'}
               </Text>
             )}
           </TouchableOpacity>
         </View>
       </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -713,6 +815,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#717171',
   },
   scrollContent: {
     paddingBottom: 20,

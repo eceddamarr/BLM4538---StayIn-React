@@ -27,7 +27,7 @@ export default function BottomNav({ activeTab }: Props) {
         <Text style={[styles.navText, active('favorites') && styles.navTextActive]}>Favoriler</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.navItem}>
+      <TouchableOpacity style={styles.navItem} onPress={() => router.push('/my-listings' as never)}>
         <Ionicons name="list-outline" size={24} color={color('listings')} />
         <Text style={[styles.navText, active('listings') && styles.navTextActive]}>İlanlarım</Text>
       </TouchableOpacity>
