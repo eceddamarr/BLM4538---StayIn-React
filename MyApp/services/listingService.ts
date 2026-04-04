@@ -1,4 +1,4 @@
-import { API_URL, request } from './apiClient';
+import { request } from './apiClient';
 import { Property } from '@/types/property';
 
 export interface CreateListingDTO {
@@ -24,26 +24,33 @@ export interface CreateListingDTO {
   longitude?: number;
 }
 
+export interface ReservationDTO {
+  listingId: number;
+  checkInDate: string;
+  checkOutDate: string;
+  numberOfGuests: number;
+}
+
+// Transform backend response to Property type
+function transformToProperty(listing: any): Property {
+  return {
+    id: listing.id.toString(),
+    title: listing.title,
+    location: `${listing.address?.addressCity || ''}, ${listing.address?.addressDistrict || ''}`,
+    price: listing.price,
+    rating: 0,
+    reviewCount: 0,
+    image: listing.photoUrls?.[0] || 'https://via.placeholder.com/800x600',
+    isFavorite: false,
+    userId: listing.userId,
+  };
+}
+
 // Get all listings
 export async function getAllListings(): Promise<Property[]> {
   try {
-    const response = await fetch(`${API_URL}/Listing/all`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch listings');
-    }
-    const data = await response.json();
-
-    // Transform backend response to Property type
-    return data.map((listing: any) => ({
-      id: listing.id.toString(),
-      title: listing.title,
-      location: `${listing.address?.addressCity || ''}, ${listing.address?.addressDistrict || ''}`,
-      price: listing.price,
-      rating: 0,
-      reviewCount: 0,
-      image: listing.photoUrls?.[0] || 'https://via.placeholder.com/800x600',
-      isFavorite: false,
-    }));
+    const data = await request<any[]>('/Listing/all');
+    return data.map(transformToProperty);
   } catch (error) {
     console.error('Error fetching listings:', error);
     return [];
@@ -51,27 +58,12 @@ export async function getAllListings(): Promise<Property[]> {
 }
 
 // Get single listing by ID
-export async function getListingById(id: number): Promise<Property | null> {
+export async function getListingById(id: number): Promise<any> {
   try {
-    const response = await fetch(`${API_URL}/Listing/${id}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch listing');
-    }
-    const listing = await response.json();
-
-    return {
-      id: listing.id.toString(),
-      title: listing.title,
-      location: `${listing.address?.addressCity || ''}, ${listing.address?.addressDistrict || ''}`,
-      price: listing.price,
-      rating: 4.5,
-      reviewCount: 0,
-      image: listing.photoUrls?.[0] || 'https://via.placeholder.com/800x600',
-      isFavorite: false,
-    };
+    return await request<any>(`/Listing/${id}`);
   } catch (error) {
     console.error('Error fetching listing:', error);
-    return null;
+    throw error;
   }
 }
 
@@ -82,7 +74,7 @@ export async function createListing(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const result = await request<{ message: string; listing: any }>(
-      '/api/MyListings',
+      '/MyListings',
       {
         method: 'POST',
         body: JSON.stringify(data),
@@ -96,6 +88,31 @@ export async function createListing(
     return {
       success: false,
       message: error instanceof Error ? error.message : 'İlan oluşturulurken hata oluştu'
+    };
+  }
+}
+
+// Create reservation
+export async function createReservation(
+  reservationData: ReservationDTO,
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const result = await request<{ message: string }>(
+      '/Reservation',
+      {
+        method: 'POST',
+        body: JSON.stringify(reservationData),
+      },
+      token
+    );
+
+    return { success: true, message: result.message || 'Rezervasyon başarıyla oluşturuldu' };
+  } catch (error) {
+    console.error('Error creating reservation:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Rezervasyon oluşturulamadı'
     };
   }
 }

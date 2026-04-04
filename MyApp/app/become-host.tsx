@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/context/AuthContext';
 import { createListing, CreateListingDTO } from '@/services/listingService';
+import { uploadPhotos } from '@/services/uploadService';
 import {
   SafeAreaView,
   ScrollView,
@@ -22,6 +23,7 @@ export default function BecomeHostScreen() {
   const { token } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [showExitModal, setShowExitModal] = useState(false);
   const [alertModal, setAlertModal] = useState({
     visible: false,
@@ -142,9 +144,20 @@ export default function BecomeHostScreen() {
       return;
     }
 
+    if (photos.length < 3) {
+      showAlert('error', 'Hata', 'En az 3 fotoğraf yüklemek gerekli');
+      return;
+    }
+
     setLoading(true);
     try {
-      // Form data'yı API DTO formatına çevir
+      // Upload photos to server
+      showAlert('success', 'Yükleniyor', 'Fotoğraflar yükleniyor...');
+      const photoUrls = await uploadPhotos(photos, token, (current, total) => {
+        setUploadProgress({ current, total });
+      });
+
+      // Fotoğraflar yüklendikten sonra ilan oluştur
       const listingData = {
         placeType: formData.placeType,
         accommodationType: formData.accommodationType,
@@ -163,7 +176,7 @@ export default function BecomeHostScreen() {
         addressPostalCode: formData.AddressPostalCode || undefined,
         addressRegion: formData.AddressRegion || undefined,
         amenities: formData.amenities ? formData.amenities.split(',').filter(Boolean) : [],
-        photoUrls: photos,
+        photoUrls: photoUrls, // Yüklenen fotoğrafların URL'lerini kullan
       };
 
       const result = await createListing(listingData, token);
@@ -177,9 +190,11 @@ export default function BecomeHostScreen() {
         showAlert('error', 'Hata', result.message);
       }
     } catch (error) {
+      console.error('Listing creation error:', error);
       showAlert('error', 'Hata', 'İlan yayınlanırken beklenmedik bir hata oluştu');
     } finally {
       setLoading(false);
+      setUploadProgress({ current: 0, total: 0 });
     }
   };
 
@@ -674,7 +689,14 @@ export default function BecomeHostScreen() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <View style={{ alignItems: 'center' }}>
+                <ActivityIndicator color="#fff" />
+                {uploadProgress.total > 0 && (
+                  <Text style={{ color: '#fff', fontSize: 12, marginTop: 4 }}>
+                    Fotoğraflar yükleniyor {uploadProgress.current}/{uploadProgress.total}
+                  </Text>
+                )}
+              </View>
             ) : (
               <Text style={styles.nextButtonText}>
                 {step === 6 ? 'İlanı Yayınla' : 'Devam'}

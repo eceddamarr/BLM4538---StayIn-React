@@ -75,6 +75,7 @@ namespace StayIn.Api.Controllers
             try
             {
                 var listing = await _context.Listings
+                    .Include(l => l.User)
                     .Where(l => l.Id == id)
                     .Select(l => new
                     {
@@ -103,6 +104,12 @@ namespace StayIn.Api.Controllers
                         l.Latitude,
                         l.Longitude,
                         l.UserId,
+                        User = l.User != null ? new
+                        {
+                            l.User.Id,
+                            l.User.FullName,
+                            l.User.Email
+                        } : null,
                         l.CreatedAt
                     })
                     .FirstOrDefaultAsync();

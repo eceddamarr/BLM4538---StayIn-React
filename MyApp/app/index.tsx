@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'expo-router';
 import {
     ScrollView,
     StatusBar,
@@ -15,8 +16,11 @@ import PropertyCard from '../components/PropertyCard';
 import { sampleProperties } from '../data/sampleProperties';
 import { Property } from '../types/property';
 import { getAllListings } from '../services/listingService';
+import { useAuth } from '../context/AuthContext';
 
 export default function Index() {
+  const { user } = useAuth();
+  const router = useRouter();
   const [properties, setProperties] = useState<Property[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -27,7 +31,13 @@ export default function Index() {
       try {
         setLoading(true);
         const listings = await getAllListings();
-        setProperties(listings.length > 0 ? listings : sampleProperties);
+
+        // Kullanıcının kendi ilanlarını filtrele
+        const filteredListings = user
+          ? listings.filter(listing => listing.userId !== user.id)
+          : listings;
+
+        setProperties(filteredListings.length > 0 ? filteredListings : sampleProperties);
       } catch (error) {
         console.error('Error loading listings:', error);
         setProperties(sampleProperties);
@@ -37,7 +47,7 @@ export default function Index() {
     };
 
     fetchListings();
-  }, []);
+  }, [user]);
 
   const handleFavoritePress = (propertyId: string) => {
     setProperties((prev) =>
@@ -50,8 +60,10 @@ export default function Index() {
   };
 
   const handlePropertyPress = (propertyId: string) => {
-    console.log('Property pressed:', propertyId);
-    // Burada detay sayfasına yönlendirme yapılacak
+    router.push({
+      pathname: '/listing/[id]',
+      params: { id: propertyId },
+    });
   };
 
   return (

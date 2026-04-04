@@ -541,3 +541,4 @@ C:\Users\ecenu\OneDrive\Belgeler\GitHub\BLM4538---StayIn-React\backend\obj\Debug
 C:\Users\ecenu\OneDrive\Belgeler\GitHub\BLM4538---StayIn-React\backend\obj\Debug\net9.0\StayinApi.pdb
 C:\Users\ecenu\OneDrive\Belgeler\GitHub\BLM4538---StayIn-React\backend\obj\Debug\net9.0\StayinApi.genruntimeconfig.cache
 C:\Users\ecenu\OneDrive\Belgeler\GitHub\BLM4538---StayIn-React\backend\obj\Debug\net9.0\ref\StayinApi.dll
+C:\Users\ecenu\OneDrive\Belgeler\GitHub\BLM4538---StayIn-React\backend\bin\Debug\net9.0\StayinApi.staticwebassets.runtime.json

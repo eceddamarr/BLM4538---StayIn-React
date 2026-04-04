@@ -82,6 +82,9 @@ app.UseCors("DevCors");
 if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 
+// Statik dosyaları servis et (uploads klasörü için)
+app.UseStaticFiles();
+
 app.UseAuthentication();
 app.UseAuthorization();
 

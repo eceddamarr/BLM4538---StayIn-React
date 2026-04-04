@@ -7,4 +7,5 @@ export interface Property {
   reviewCount: number;
   image: string;
   isFavorite: boolean;
+  userId?: number;
 }

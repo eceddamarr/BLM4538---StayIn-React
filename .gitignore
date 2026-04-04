@@ -1,0 +1,4 @@
+
+# Uploaded files
+backend/wwwroot/uploads/*
+!backend/wwwroot/uploads/.gitkeep
