@@ -76,7 +76,7 @@ namespace StayIn.Api.Controllers
             {
                 var listing = await _context.Listings
                     .Include(l => l.User)
-                    .Where(l => l.Id == id)
+                    .Where(l => l.Id == id && !l.IsArchived)  // Arşivlenmiş ilanları gösterme
                     .Select(l => new
                     {
                         l.Id,
