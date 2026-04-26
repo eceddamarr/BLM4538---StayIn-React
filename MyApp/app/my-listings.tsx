@@ -23,6 +23,7 @@ import {
   archiveListing,
   unarchiveListing,
 } from '../services/listingService';
+import { transformImageUrl } from '../services/apiClient';
 
 interface Listing {
   id: number;
@@ -179,7 +180,7 @@ export default function MyListingsScreen() {
               <View key={listing.id} style={styles.listingCard}>
                 <View style={styles.imageContainer}>
                   <Image
-                    source={{ uri: listing.photoUrls?.[0] || 'https://via.placeholder.com/400x250' }}
+                    source={{ uri: transformImageUrl(listing.photoUrls?.[0] || 'https://via.placeholder.com/400x250') }}
                     style={styles.listingImage}
                     resizeMode="cover"
                   />

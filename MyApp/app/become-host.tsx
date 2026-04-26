@@ -5,8 +5,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/context/AuthContext';
 import { createListing, CreateListingDTO, getMyListingDetail, updateListing } from '@/services/listingService';
 import { uploadPhotos } from '@/services/uploadService';
+import { transformImageUrl } from '@/services/apiClient';
 import {
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,6 +17,7 @@ import {
   Image,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function BecomeHostScreen() {
   const router = useRouter();
@@ -675,7 +676,7 @@ export default function BecomeHostScreen() {
                 <View style={styles.photoList}>
                   {existingPhotos.map((photo, index) => (
                     <View key={`existing-${index}`} style={styles.photoListItem}>
-                      <Image source={{ uri: photo }} style={styles.photoListImage} />
+                      <Image source={{ uri: transformImageUrl(photo) }} style={styles.photoListImage} />
                       <View style={styles.photoListInfo}>
                         <Text style={styles.photoListItemNumber}>Fotoğraf {index + 1}</Text>
                       </View>

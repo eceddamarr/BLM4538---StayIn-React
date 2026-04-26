@@ -21,6 +21,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/tr';
 import { useAuth } from '@/context/AuthContext';
 import { getListingById, createReservation, ReservationDTO, addToFavorites, removeFromFavorites, checkIsFavorite } from '@/services/listingService';
+import { transformImageUrl } from '@/services/apiClient';
 
 dayjs.locale('tr');
 const isWeb = Platform.OS === 'web';
@@ -315,7 +316,7 @@ export default function ListingDetailScreen() {
             {listing.photoUrls.map((photo, index) => (
               <Image
                 key={index}
-                source={{ uri: photo }}
+                source={{ uri: transformImageUrl(photo) }}
                 style={styles.photo}
                 resizeMode="cover"
               />

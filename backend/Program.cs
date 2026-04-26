@@ -20,7 +20,7 @@ builder.Services.AddDbContext<AppDbContext>(opts =>
 builder.Services.AddScoped<IEmailService, MockEmailService>();
 
 // CORS (Vue 5173, 5174 için izin)
-// CORS - Tüm localhost portlarına izin ver
+// CORS - Tüm localhost portlarına + mobile emülatörlere izin ver
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("DevCors", policy =>
@@ -28,16 +28,18 @@ builder.Services.AddCors(options =>
         policy.SetIsOriginAllowed(origin =>
         {
             if (string.IsNullOrWhiteSpace(origin)) return false;
-            
-            // localhost veya 127.0.0.1 ile başlayan tüm portlara izin ver
-            if (origin.StartsWith("http://localhost:") || 
+
+            // localhost, 127.0.0.1, Android emülatör (10.0.2.2), ve kişisel IP
+            if (origin.StartsWith("http://localhost:") ||
                 origin.StartsWith("http://127.0.0.1:") ||
-                origin.StartsWith("https://localhost:") || 
-                origin.StartsWith("https://127.0.0.1:"))
+                origin.StartsWith("https://localhost:") ||
+                origin.StartsWith("https://127.0.0.1:") ||
+                origin.StartsWith("http://10.0.2.2:") ||  // Android emülatör
+                origin.StartsWith("http://192.168."))  // Kişisel ağdaki IP'ler
             {
                 return true;
             }
-            
+
             return false;
         })
         .AllowAnyHeader()

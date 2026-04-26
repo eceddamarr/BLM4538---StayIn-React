@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Property } from '../types/property';
+import { transformImageUrl } from '../services/apiClient';
 
 interface PropertyCardProps {
   property: Property;
@@ -14,7 +15,7 @@ export default function PropertyCard({ property, onPress, onFavoritePress }: Pro
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
       <View style={styles.imageContainer}>
         <Image
-          source={{ uri: property.image }}
+          source={{ uri: transformImageUrl(property.image) }}
           style={styles.image}
           resizeMode="cover"
         />

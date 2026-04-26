@@ -2,11 +2,27 @@ import { Platform } from 'react-native';
 
 // Platform-aware API URL
 export const BASE_URL =
-  Platform.OS === 'android'
-    ? 'http://10.0.2.2:5211'
-    : 'http://localhost:5211';
+  Platform.OS === 'web'
+    ? 'http://localhost:5211' // Web tarayıcı
+    : Platform.OS === 'android'
+    ? 'http://10.0.2.2:5211' // Android emülatör
+    : 'http://192.168.5.248:5211'; // iOS / Gerçek telefon
 
 export const API_URL = `${BASE_URL}/api`;
+
+// Fotoğraf URL'sini düzelt (localhost'u gerçek IP'ye çevir)
+export function transformImageUrl(url: string): string {
+  if (!url) return url;
+
+  if (Platform.OS !== 'web') {
+    // Telefon/emülatörlerde localhost'u IP address'e çevir
+    return url
+      .replace('http://localhost:5211', `http://${Platform.OS === 'android' ? '10.0.2.2' : '192.168.5.248'}:5211`)
+      .replace('https://localhost:7063', `http://${Platform.OS === 'android' ? '10.0.2.2' : '192.168.5.248'}:5211`);
+  }
+
+  return url;
+}
 
 interface ApiError {
   message?: string;
