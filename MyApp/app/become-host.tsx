@@ -42,8 +42,14 @@ export default function BecomeHostScreen() {
   // editId varsa ilanı yükle
   useEffect(() => {
     const loadListingData = async () => {
-      if (!editId || !token) {
-        console.log('No editId or token:', { editId, token });
+      if (!editId) {
+        // Yeni listing oluştur
+        setInitialLoading(false);
+        return;
+      }
+
+      if (!token) {
+        console.log('Token yok');
         setInitialLoading(false);
         return;
       }
@@ -853,30 +859,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginVertical: 20,
-    paddingHorizontal: 16,
+    marginVertical: 16,
+    paddingHorizontal: 12,
+    flexWrap: 'wrap',
   },
   progressItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   progressCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    marginHorizontal: 3,
   },
   progressText: {
     color: '#fff',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 12,
   },
   progressLine: {
-    width: 20,
+    width: 12,
     height: 2,
-    marginHorizontal: 8,
+    marginHorizontal: 1,
   },
   stepContainer: {
     marginHorizontal: 16,
@@ -1219,9 +1227,9 @@ const styles = StyleSheet.create({
   modalContent: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 24,
+    padding: 28,
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 420,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -1237,14 +1245,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#212121',
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   modalMessage: {
     fontSize: 15,
     color: '#666',
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
+    lineHeight: 24,
+    marginBottom: 28,
   },
   modalButtons: {
     flexDirection: 'row',
@@ -1266,22 +1274,26 @@ const styles = StyleSheet.create({
   },
   modalButtonConfirm: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     borderRadius: 10,
     backgroundColor: '#ff5a5f',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   modalButtonConfirmText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
   },
   modalButtonSingle: {
     width: '100%',
-    paddingVertical: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     borderRadius: 10,
     backgroundColor: '#ff5a5f',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   modalButtonSuccess: {
     backgroundColor: '#34c759',

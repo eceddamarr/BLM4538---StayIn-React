@@ -24,6 +24,45 @@ export function transformImageUrl(url: string): string {
   return url;
 }
 
+// User service functions
+export async function updateUserProfile(data: { fullName?: string; phoneNumber?: string }, token: string) {
+  try {
+    const result = await request<{ message: string; user: any }>(
+      '/User/profile',
+      {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      },
+      token
+    );
+    return { success: true, message: result.message || 'Profil başarıyla güncellendi', user: result.user };
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Profil güncellenemedi',
+    };
+  }
+}
+
+export async function changeUserPassword(oldPassword: string, newPassword: string, token: string) {
+  try {
+    const result = await request<{ message: string }>(
+      '/User/password',
+      {
+        method: 'PUT',
+        body: JSON.stringify({ oldPassword, newPassword }),
+      },
+      token
+    );
+    return { success: true, message: result.message || 'Şifre başarıyla değiştirildi' };
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Şifre değiştirilemedi',
+    };
+  }
+}
+
 interface ApiError {
   message?: string;
   error?: string;

@@ -73,7 +73,7 @@ export default function ProfileScreen() {
   // Giriş yapılmış: profil ekranı
   if (user) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         {/* Logout Confirmation Modal */}
         <Modal
           visible={showLogoutModal}
@@ -139,53 +139,94 @@ export default function ProfileScreen() {
           </View>
         </Modal>
 
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Profil</Text>
+        </View>
+
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          <View style={styles.logoWrapper}>
+          {/* Profile Info */}
+          <View style={styles.profileSection}>
             <View style={styles.avatarCircle}>
-              <MaterialCommunityIcons name="account" size={48} color="#fff" />
+              <Text style={styles.avatarText}>
+                {user.fullName?.charAt(0).toUpperCase() || 'P'}
+              </Text>
             </View>
-            <Text style={styles.brand}>{user.fullName}</Text>
-            <Text style={styles.subtitle}>{user.role}</Text>
+            <Text style={styles.userName}>{user.fullName}</Text>
+            <Text style={styles.userEmail}>{user.email}</Text>
           </View>
 
-          <View style={styles.formContainer}>
-            <View style={styles.infoRow}>
-              <MaterialCommunityIcons name="email-outline" size={20} color="#8a8a8a" />
-              <View style={styles.infoText}>
-                <Text style={styles.infoLabel}>E-posta</Text>
-                <Text style={styles.infoValue}>{user.email}</Text>
+          {/* Ev Sahipliği Section */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Ev Sahipliği</Text>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push('/become-host' as never)}
+            >
+              <View style={[styles.menuIconContainer, { backgroundColor: '#FFE8EB' }]}>
+                <MaterialCommunityIcons name="home-plus-outline" size={24} color="#ff5a5f" />
               </View>
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.infoRow}>
-              <MaterialCommunityIcons name="phone-outline" size={20} color="#8a8a8a" />
-              <View style={styles.infoText}>
-                <Text style={styles.infoLabel}>Telefon</Text>
-                <Text style={styles.infoValue}>{user.phoneNumber}</Text>
-              </View>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={styles.hostingCard}
-            onPress={() => router.push('/become-host' as never)}
-          >
-            <View style={styles.hostingContent}>
-              <MaterialCommunityIcons name="home-plus-outline" size={24} color="#ff5a5f" />
-              <View style={styles.hostingText}>
-                <Text style={styles.hostingLabel}>Ev Sahipliği Yapın</Text>
-                <Text style={styles.hostingSubtitle}>İlanınızı yayınlayın</Text>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuTitle}>Ev Sahipliği Yapın</Text>
+                <Text style={styles.menuSubtitle}>Mekanınızı paylaşın ve kazanın</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#cccccc" />
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
 
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={20} color="#ff5a5f" />
-            <Text style={styles.logoutButtonText}>Çıkış Yap</Text>
-          </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem}>
+              <View style={[styles.menuIconContainer, { backgroundColor: '#FFE8EB' }]}>
+                <MaterialCommunityIcons name="calendar-check" size={24} color="#ff5a5f" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuTitle}>Gelen Rezervasyon Talepleri</Text>
+                <Text style={styles.menuSubtitle}>Rezervasyon isteklerini yönetin</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#cccccc" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Hesap Section */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Hesap</Text>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push('/edit-profile' as never)}
+            >
+              <View style={[styles.menuIconContainer, { backgroundColor: '#E8F3FF' }]}>
+                <MaterialCommunityIcons name="account-edit" size={24} color="#007AFF" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuTitle}>Profili Düzenle</Text>
+                <Text style={styles.menuSubtitle}>Adı, email ve telefon bilgilerini güncelleyin</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#cccccc" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push('/change-password' as never)}
+            >
+              <View style={[styles.menuIconContainer, { backgroundColor: '#FFF3E0' }]}>
+                <MaterialCommunityIcons name="lock-reset" size={24} color="#FF9800" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuTitle}>Şifre Değiştir</Text>
+                <Text style={styles.menuSubtitle}>Hesap şifrenizi güncelleyin</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#cccccc" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+              <View style={[styles.menuIconContainer, { backgroundColor: '#FFEBEE' }]}>
+                <MaterialCommunityIcons name="logout" size={24} color="#DC2C2C" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuTitle}>Çıkış Yap</Text>
+                <Text style={styles.menuSubtitle}>Hesabınızdan çıkış yapın</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#cccccc" />
+            </TouchableOpacity>
+          </View>
         </ScrollView>
         <BottomNav activeTab="profile" />
       </SafeAreaView>
@@ -302,18 +343,34 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F7F7F7',
   },
   center: {
     alignItems: 'center',
     justifyContent: 'center',
   },
+  header: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EBEBEB',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#222',
+  },
   scrollContent: {
     paddingBottom: 28,
   },
-  logoWrapper: {
+  profileSection: {
     alignItems: 'center',
-    marginTop: 48,
+    paddingVertical: 24,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EBEBEB',
   },
   avatarCircle: {
     width: 80,
@@ -322,7 +379,70 @@ const styles = StyleSheet.create({
     backgroundColor: '#ff5a5f',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
+  },
+  avatarText: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#222',
+    marginBottom: 4,
+  },
+  userEmail: {
+    fontSize: 14,
+    color: '#8a8a8a',
+  },
+  sectionContainer: {
+    marginTop: 16,
+    backgroundColor: '#fff',
+    marginHorizontal: 0,
+    paddingHorizontal: 0,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#717171',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  menuIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  menuContent: {
+    flex: 1,
+  },
+  menuTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#222',
+    marginBottom: 4,
+  },
+  menuSubtitle: {
+    fontSize: 13,
+    color: '#8a8a8a',
+  },
+  // Login/Register Styles
+  logoWrapper: {
+    alignItems: 'center',
+    marginTop: 48,
   },
   brand: {
     marginTop: 4,
@@ -419,75 +539,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   registerButtonText: {
-    color: '#ff5a5f',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
-  },
-  infoText: {
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 12,
-    color: '#8a8a8a',
-    marginBottom: 2,
-  },
-  infoValue: {
-    fontSize: 15,
-    color: '#212121',
-    fontWeight: '500',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#e5e5e5',
-  },
-  hostingCard: {
-    marginTop: 16,
-    marginHorizontal: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#e8e8e8',
-    backgroundColor: '#fff',
-  },
-  hostingContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  hostingText: {
-    flex: 1,
-  },
-  hostingLabel: {
-    fontSize: 15,
-    color: '#212121',
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  hostingSubtitle: {
-    fontSize: 13,
-    color: '#8a8a8a',
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 24,
-    marginHorizontal: 14,
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#ff5a5f',
-    backgroundColor: '#fff',
-  },
-  logoutButtonText: {
     color: '#ff5a5f',
     fontSize: 16,
     fontWeight: '700',
