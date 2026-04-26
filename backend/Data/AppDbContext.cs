@@ -21,13 +21,38 @@ public class AppDbContext : DbContext
         base.OnModelCreating(modelBuilder);
 
         // Şuanlik sadece Listings
-        modelBuilder.Ignore<Reservation>();
         modelBuilder.Ignore<Review>();
         modelBuilder.Ignore<Payment>();
 
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Email)
             .IsUnique();
+
+        modelBuilder.Entity<Listing>()
+            .Property(l => l.Price)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<Reservation>()
+            .Property(r => r.TotalPrice)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<Reservation>()
+            .HasOne(r => r.Listing)
+            .WithMany()
+            .HasForeignKey(r => r.ListingId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Reservation>()
+            .HasOne(r => r.Guest)
+            .WithMany()
+            .HasForeignKey(r => r.GuestId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Reservation>()
+            .HasOne(r => r.Host)
+            .WithMany()
+            .HasForeignKey(r => r.HostId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // User Favorites kolonunu JSON olarak sakla
         modelBuilder.Entity<User>()

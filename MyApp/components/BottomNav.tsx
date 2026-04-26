@@ -27,7 +27,7 @@ export default function BottomNav({ activeTab }: Props) {
         <Text style={[styles.navText, active('listings') && styles.navTextActive]}>İlanlarım</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.navItem}>
+      <TouchableOpacity style={styles.navItem} onPress={() => router.push('/reservations' as never)}>
         <Ionicons name="calendar-outline" size={24} color={color('reservations')} />
         <Text style={[styles.navText, active('reservations') && styles.navTextActive]}>Rezervasyonlarım</Text>
       </TouchableOpacity>

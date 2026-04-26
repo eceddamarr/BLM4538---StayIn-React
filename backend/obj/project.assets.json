@@ -5208,5 +5208,17 @@
         "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.305/PortableRuntimeIdentifierGraph.json"
       }
     }
-  }
+  },
+  "logs": [
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "warningLevel": 1,
+      "message": "'MailKit' 4.14.1 paketinde önem derecesi orta olan bilinen bir https://github.com/advisories/GHSA-9j88-vvj5-vhgr güvenlik açığı var",
+      "libraryId": "MailKit",
+      "targetGraphs": [
+        "net9.0"
+      ]
+    }
+  ]
 }

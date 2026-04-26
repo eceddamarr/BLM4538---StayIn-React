@@ -28,7 +28,24 @@ export interface ReservationDTO {
   listingId: number;
   checkInDate: string;
   checkOutDate: string;
-  numberOfGuests: number;
+  guests: number;
+}
+
+export interface MyReservation {
+  id: number;
+  listingId: number;
+  listingTitle: string;
+  listingPhotoUrl?: string | null;
+  hostName: string;
+  checkInDate: string;
+  checkOutDate: string;
+  guests: number;
+  totalPrice: number;
+  status: string;
+  createdAt: string;
+  responsedAt?: string | null;
+  isPaid: boolean;
+  paymentDate?: string | null;
 }
 
 // Transform backend response to Property type
@@ -119,7 +136,7 @@ export async function createReservation(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const result = await request<{ message: string }>(
-      '/Reservation',
+      '/Reservation/create',
       {
         method: 'POST',
         body: JSON.stringify(reservationData),
@@ -134,6 +151,21 @@ export async function createReservation(
       success: false,
       message: error instanceof Error ? error.message : 'Rezervasyon oluşturulamadı'
     };
+  }
+}
+
+// Get user's reservations
+export async function getMyReservations(token: string): Promise<MyReservation[]> {
+  try {
+    const result = await request<{ reservations: MyReservation[] }>(
+      '/Reservation/my-reservations',
+      {},
+      token
+    );
+    return result.reservations || [];
+  } catch (error) {
+    console.error('Error fetching reservations:', error);
+    throw error;
   }
 }
 

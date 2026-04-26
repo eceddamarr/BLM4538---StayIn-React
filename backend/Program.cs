@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using StayIn.Api.Data;
+using StayIn.Api.Models;
 using StayIn.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -73,6 +74,21 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+// Migrations otomatik olarak çalıştır
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.MigrateAsync();
+}
+
+if (args.Contains("--seed-reservations"))
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await SeedSampleReservationsAsync(db);
+    return;
+}
+
 // Middleware sırası
 if (app.Environment.IsDevelopment())
 {
@@ -94,3 +110,77 @@ app.MapControllers();
 
 
 app.Run();
+
+static async Task SeedSampleReservationsAsync(AppDbContext db)
+{
+    var users = await db.Users
+        .OrderBy(u => u.Id)
+        .Select(u => u.Id)
+        .ToListAsync();
+
+    var listings = await db.Listings
+        .Where(l => l.UserId != null)
+        .OrderBy(l => l.Id)
+        .Select(l => new { l.Id, HostId = l.UserId!.Value, l.Price, l.Guests })
+        .Take(20)
+        .ToListAsync();
+
+    if (users.Count == 0 || listings.Count == 0)
+    {
+        Console.WriteLine("Seed icin kullanici veya ilan bulunamadi.");
+        return;
+    }
+
+    var statuses = new[] { "Pending", "Approved", "Rejected" };
+    var created = 0;
+
+    foreach (var listing in listings)
+    {
+        if (created >= 10)
+        {
+            break;
+        }
+
+        var guestId = users.FirstOrDefault(userId => userId != listing.HostId);
+        if (guestId == 0)
+        {
+            continue;
+        }
+
+        var checkInDate = DateTime.Today.AddDays(7 + created * 4);
+        var checkOutDate = checkInDate.AddDays((created % 4) + 1);
+        var guests = Math.Min(listing.Guests, (created % Math.Max(listing.Guests, 1)) + 1);
+
+        var alreadyExists = await db.Reservations.AnyAsync(r =>
+            r.ListingId == listing.Id &&
+            r.GuestId == guestId &&
+            r.CheckInDate == checkInDate &&
+            r.CheckOutDate == checkOutDate);
+
+        if (alreadyExists)
+        {
+            continue;
+        }
+
+        var status = statuses[created % statuses.Length];
+
+        db.Reservations.Add(new Reservation
+        {
+            ListingId = listing.Id,
+            GuestId = guestId,
+            HostId = listing.HostId,
+            CheckInDate = checkInDate,
+            CheckOutDate = checkOutDate,
+            Guests = guests,
+            TotalPrice = listing.Price * (checkOutDate - checkInDate).Days,
+            Status = status,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-created * 12),
+            ResponsedAt = status == "Pending" ? null : DateTime.UtcNow.AddMinutes(-created * 8)
+        });
+
+        created++;
+    }
+
+    await db.SaveChangesAsync();
+    Console.WriteLine($"{created} ornek rezervasyon eklendi.");
+}

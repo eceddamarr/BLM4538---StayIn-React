@@ -25,6 +25,13 @@ namespace StayIn.Api.Controllers
         {
             try
             {
+                // Tarih stringlerini parse et
+                if (!DateTime.TryParse(request.CheckInDate, out DateTime checkInDate) ||
+                    !DateTime.TryParse(request.CheckOutDate, out DateTime checkOutDate))
+                {
+                    return BadRequest(new { message = "Geçersiz tarih formatı. YYYY-MM-DD formatını kullanınız." });
+                }
+
                 // Kullanıcı ID'sini JWT'den al
                 var userIdClaim = User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value
                     ?? User.FindFirst("sub")?.Value
@@ -42,6 +49,11 @@ namespace StayIn.Api.Controllers
                     return NotFound(new { message = "İlan bulunamadı." });
                 }
 
+                if (listing.UserId == null)
+                {
+                    return BadRequest(new { message = "Bu ilan için ev sahibi bilgisi bulunamadı." });
+                }
+
                 // Kendi ilanına rezervasyon yapamasın
                 if (listing.UserId == guestId)
                 {
@@ -49,8 +61,8 @@ namespace StayIn.Api.Controllers
                 }
 
                 var existingReservation = await _context.Reservations
-                .Where(r => r.GuestId == guestId && 
-                        r.ListingId == request.ListingId && 
+                .Where(r => r.GuestId == guestId &&
+                        r.ListingId == request.ListingId &&
                         (r.Status == "Pending" || r.Status == "Approved"))
                 .FirstOrDefaultAsync();
 
@@ -62,12 +74,12 @@ namespace StayIn.Api.Controllers
                 // *** YENİ: Tarih çakışması kontrolü ***
                 // Bu ilanın seçilen tarihler arasında onaylanmış başka rezervasyonu var mı?
                 var hasConflict = await _context.Reservations
-                    .Where(r => r.ListingId == request.ListingId && 
+                    .Where(r => r.ListingId == request.ListingId &&
                                 r.Status == "Approved" &&
                                 // Tarih çakışması kontrolü
-                                ((request.CheckInDate >= r.CheckInDate && request.CheckInDate < r.CheckOutDate) ||  // Yeni giriş tarihi mevcut rezervasyon içinde
-                                (request.CheckOutDate > r.CheckInDate && request.CheckOutDate <= r.CheckOutDate) || // Yeni çıkış tarihi mevcut rezervasyon içinde
-                                (request.CheckInDate <= r.CheckInDate && request.CheckOutDate >= r.CheckOutDate)))  // Yeni rezervasyon mevcut rezervasyonu kapsıyor
+                                ((checkInDate >= r.CheckInDate && checkInDate < r.CheckOutDate) ||  // Yeni giriş tarihi mevcut rezervasyon içinde
+                                (checkOutDate > r.CheckInDate && checkOutDate <= r.CheckOutDate) || // Yeni çıkış tarihi mevcut rezervasyon içinde
+                                (checkInDate <= r.CheckInDate && checkOutDate >= r.CheckOutDate)))  // Yeni rezervasyon mevcut rezervasyonu kapsıyor
                     .AnyAsync();
 
                 if (hasConflict)
@@ -76,18 +88,28 @@ namespace StayIn.Api.Controllers
                 }
 
                 // Tarih kontrolü
-                if (request.CheckInDate >= request.CheckOutDate)
+                if (checkInDate >= checkOutDate)
                 {
                     return BadRequest(new { message = "Çıkış tarihi giriş tarihinden sonra olmalıdır." });
                 }
 
-                if (request.CheckInDate < DateTime.Today)
+                if (checkInDate < DateTime.Today)
                 {
                     return BadRequest(new { message = "Geçmiş tarihe rezervasyon yapamazsınız." });
                 }
 
+                if (request.Guests <= 0)
+                {
+                    return BadRequest(new { message = "Konuk sayısı 0'dan büyük olmalıdır." });
+                }
+
+                if (request.Guests > listing.Guests)
+                {
+                    return BadRequest(new { message = $"Bu ilan maksimum {listing.Guests} konuk kabul ediyor." });
+                }
+
                 // Toplam gece ve fiyat hesapla
-                var nights = (request.CheckOutDate - request.CheckInDate).Days;
+                var nights = (checkOutDate - checkInDate).Days;
                 var totalPrice = nights * listing.Price;
 
                 var reservation = new Reservation
@@ -95,8 +117,8 @@ namespace StayIn.Api.Controllers
                     ListingId = request.ListingId,
                     GuestId = guestId,
                     HostId = listing.UserId!.Value,
-                    CheckInDate = request.CheckInDate,
-                    CheckOutDate = request.CheckOutDate,
+                    CheckInDate = checkInDate,
+                    CheckOutDate = checkOutDate,
                     Guests = request.Guests,
                     TotalPrice = totalPrice,
                     Status = "Pending",
@@ -106,7 +128,7 @@ namespace StayIn.Api.Controllers
                 _context.Reservations.Add(reservation);
                 await _context.SaveChangesAsync();
 
-                return Ok(new { 
+                return Ok(new {
                     message = "Rezervasyon talebiniz gönderildi. Ev sahibinin onayını bekleyin.",
                     reservationId = reservation.Id,
                     totalPrice = totalPrice
@@ -376,8 +398,8 @@ namespace StayIn.Api.Controllers
         public class CreateReservationRequest
         {
             public int ListingId { get; set; }
-            public DateTime CheckInDate { get; set; }
-            public DateTime CheckOutDate { get; set; }
+            public string CheckInDate { get; set; }
+            public string CheckOutDate { get; set; }
             public int Guests { get; set; }
         }
     }

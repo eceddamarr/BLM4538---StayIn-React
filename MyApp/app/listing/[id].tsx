@@ -66,6 +66,9 @@ export default function ListingDetailScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [reservationData, setReservationData] = useState({
     checkIn: '',
     nights: 1,
@@ -166,34 +169,38 @@ export default function ListingDetailScreen() {
 
   const submitReservation = async () => {
     if (!reservationData.checkIn) {
-      Alert.alert('Hata', 'Lütfen giriş tarihini seçin');
+      setErrorMessage('Lütfen giriş tarihini seçin');
+      setShowErrorModal(true);
       return;
     }
 
     if (reservationData.nights <= 0) {
-      Alert.alert('Hata', 'Gece sayısı 0 dan büyük olmalıdır');
+      setErrorMessage('Gece sayısı 0 dan büyük olmalıdır');
+      setShowErrorModal(true);
       return;
     }
 
     if (reservationData.guests <= 0) {
-      Alert.alert('Hata', 'Konuk sayısı 0 dan büyük olmalıdır');
+      setErrorMessage('Konuk sayısı 0 dan büyük olmalıdır');
+      setShowErrorModal(true);
       return;
     }
 
     if (listing && reservationData.guests > listing.guests) {
-      Alert.alert('Hata', `Bu ilan maksimum ${listing.guests} konuk kabul ediyor`);
+      setErrorMessage(`Bu ilan maksimum ${listing.guests} konuk kabul ediyor`);
+      setShowErrorModal(true);
       return;
     }
 
     if (!token) {
-      Alert.alert('Hata', 'Giriş yapmanız gerekiyor');
+      setErrorMessage('Giriş yapmanız gerekiyor');
+      setShowErrorModal(true);
       return;
     }
 
     try {
       setReservationLoading(true);
 
-      // Parse check-in date and calculate check-out date
       const [year, month, day] = reservationData.checkIn.split('-').map(Number);
       const checkInDate = new Date(year, month - 1, day);
 
@@ -207,29 +214,30 @@ export default function ListingDetailScreen() {
         return `${year}-${month}-${day}`;
       };
 
-      const result = await createReservation({
+      const reservationPayload = {
         listingId: parseInt(id as string),
         checkInDate: formatDate(checkInDate),
         checkOutDate: formatDate(checkOutDate),
-        numberOfGuests: reservationData.guests,
-      }, token);
+        guests: reservationData.guests,
+      };
+
+      console.log('Rezervasyon gönderiliyor:', reservationPayload);
+
+      const result = await createReservation(reservationPayload, token);
+
+      console.log('Rezervasyon response:', result);
 
       if (result.success) {
-        Alert.alert('Başarılı', result.message, [
-          {
-            text: 'Tamam',
-            onPress: () => {
-              setShowReservationModal(false);
-              router.push('/');
-            },
-          },
-        ]);
+        setShowReservationModal(false);
+        setShowSuccessModal(true);
       } else {
-        Alert.alert('Hata', result.message);
+        setErrorMessage(result.message);
+        setShowErrorModal(true);
       }
     } catch (error) {
       console.error('Reservation error:', error);
-      Alert.alert('Hata', error instanceof Error ? error.message : 'Rezervasyon oluşturulamadı');
+      setErrorMessage(error instanceof Error ? error.message : 'Rezervasyon oluşturulamadı');
+      setShowErrorModal(true);
     } finally {
       setReservationLoading(false);
     }
@@ -665,6 +673,59 @@ export default function ListingDetailScreen() {
                 <Text style={styles.loginModalLoginButtonText}>Giriş Yap</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowSuccessModal(false)}
+      >
+        <View style={styles.successModalOverlay}>
+          <View style={styles.successModalContent}>
+            <View style={styles.successIcon}>
+              <Ionicons name="checkmark-circle" size={64} color="#1F9D55" />
+            </View>
+            <Text style={styles.successModalTitle}>Rezervasyon Başarılı!</Text>
+            <Text style={styles.successModalMessage}>
+              Rezervasyon talebiniz gönderildi. Ev sahibinin onayını bekleyin.
+            </Text>
+            <TouchableOpacity
+              style={styles.successModalButton}
+              onPress={() => {
+                setShowSuccessModal(false);
+                router.push('/');
+              }}
+            >
+              <Text style={styles.successModalButtonText}>Ana Sayfaya Dön</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Error Modal */}
+      <Modal
+        visible={showErrorModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowErrorModal(false)}
+      >
+        <View style={styles.errorModalOverlay}>
+          <View style={styles.errorModalContent}>
+            <View style={styles.errorIcon}>
+              <Ionicons name="close-circle" size={64} color="#D92D20" />
+            </View>
+            <Text style={styles.errorModalTitle}>Hata</Text>
+            <Text style={styles.errorModalMessage}>{errorMessage}</Text>
+            <TouchableOpacity
+              style={styles.errorModalButton}
+              onPress={() => setShowErrorModal(false)}
+            >
+              <Text style={styles.errorModalButtonText}>Tamam</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1153,6 +1214,102 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loginModalLoginButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  successModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  successModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 32,
+    marginHorizontal: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  successIcon: {
+    marginBottom: 16,
+  },
+  successModalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#222',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  successModalMessage: {
+    fontSize: 16,
+    color: '#717171',
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  successModalButton: {
+    backgroundColor: '#FF385C',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    width: '100%',
+    alignItems: 'center',
+  },
+  successModalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  errorModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 32,
+    marginHorizontal: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  errorIcon: {
+    marginBottom: 16,
+  },
+  errorModalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#222',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  errorModalMessage: {
+    fontSize: 16,
+    color: '#717171',
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  errorModalButton: {
+    backgroundColor: '#FF385C',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    width: '100%',
+    alignItems: 'center',
+  },
+  errorModalButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
