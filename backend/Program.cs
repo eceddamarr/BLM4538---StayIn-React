@@ -30,13 +30,14 @@ builder.Services.AddCors(options =>
         {
             if (string.IsNullOrWhiteSpace(origin)) return false;
 
-            // localhost, 127.0.0.1, Android emülatör (10.0.2.2), ve kişisel IP
+            // localhost, 127.0.0.1, Android emülatör (10.0.2.2), ve kişisel IP'ler
             if (origin.StartsWith("http://localhost:") ||
                 origin.StartsWith("http://127.0.0.1:") ||
                 origin.StartsWith("https://localhost:") ||
                 origin.StartsWith("https://127.0.0.1:") ||
                 origin.StartsWith("http://10.0.2.2:") ||  // Android emülatör
-                origin.StartsWith("http://192.168."))  // Kişisel ağdaki IP'ler
+                origin.StartsWith("http://192.168.") ||   // 192.168.x.x ağı
+                origin.StartsWith("http://172.20."))      // 172.20.x.x ağı
             {
                 return true;
             }

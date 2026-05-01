@@ -48,6 +48,24 @@ export interface MyReservation {
   paymentDate?: string | null;
 }
 
+export interface IncomingRequest {
+  id: number;
+  listingId: number;
+  listingTitle: string;
+  listingPhotoUrl?: string | null;
+  guestName: string;
+  guestEmail: string;
+  checkInDate: string;
+  checkOutDate: string;
+  guests: number;
+  totalPrice: number;
+  status: string;
+  createdAt: string;
+  responsedAt?: string | null;
+  isPaid: boolean;
+  paymentDate?: string | null;
+}
+
 // Transform backend response to Property type
 function transformToProperty(listing: any): Property {
   return {
@@ -166,6 +184,69 @@ export async function getMyReservations(token: string): Promise<MyReservation[]>
   } catch (error) {
     console.error('Error fetching reservations:', error);
     throw error;
+  }
+}
+
+// Get incoming reservation requests (for hosts)
+export async function getIncomingRequests(token: string): Promise<IncomingRequest[]> {
+  try {
+    const result = await request<{ requests: IncomingRequest[] }>(
+      '/Reservation/incoming-requests',
+      {},
+      token
+    );
+    return result.requests || [];
+  } catch (error) {
+    console.error('Error fetching incoming requests:', error);
+    throw error;
+  }
+}
+
+// Approve reservation
+export async function approveReservation(
+  reservationId: number,
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const result = await request<{ message: string }>(
+      `/Reservation/${reservationId}/approve`,
+      {
+        method: 'POST',
+      },
+      token
+    );
+
+    return { success: true, message: result.message || 'Rezervasyon onaylandı' };
+  } catch (error) {
+    console.error('Error approving reservation:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Rezervasyon onaylanamadı'
+    };
+  }
+}
+
+// Reject reservation
+export async function rejectReservation(
+  reservationId: number,
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const result = await request<{ message: string }>(
+      `/Reservation/${reservationId}/reject`,
+      {
+        method: 'POST',
+      },
+      token
+    );
+
+    return { success: true, message: result.message || 'Rezervasyon reddedildi' };
+  } catch (error) {
+    console.error('Error rejecting reservation:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Rezervasyon reddedilemedi'
+    };
   }
 }
 

@@ -4,6 +4,7 @@
     "slug": "MyApp",
     "version": "1.0.0",
     "orientation": "portrait",
+    "host": "172.20.10.3",
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",

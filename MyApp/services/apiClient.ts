@@ -1,12 +1,12 @@
 import { Platform } from 'react-native';
 
+const MOBILE_HOST_IP = '172.20.10.3';
+
 // Platform-aware API URL
 export const BASE_URL =
   Platform.OS === 'web'
     ? 'http://localhost:5211' // Web tarayıcı
-    : Platform.OS === 'android'
-    ? 'http://10.0.2.2:5211' // Android emülatör
-    : 'http://192.168.5.248:5211'; // iOS / Gerçek telefon
+    : `http://${MOBILE_HOST_IP}:5211`; // Telefon / emülatör
 
 export const API_URL = `${BASE_URL}/api`;
 
@@ -17,8 +17,8 @@ export function transformImageUrl(url: string): string {
   if (Platform.OS !== 'web') {
     // Telefon/emülatörlerde localhost'u IP address'e çevir
     return url
-      .replace('http://localhost:5211', `http://${Platform.OS === 'android' ? '10.0.2.2' : '192.168.5.248'}:5211`)
-      .replace('https://localhost:7063', `http://${Platform.OS === 'android' ? '10.0.2.2' : '192.168.5.248'}:5211`);
+      .replace('http://localhost:5211', `http://${MOBILE_HOST_IP}:5211`)
+      .replace('https://localhost:7063', `http://${MOBILE_HOST_IP}:5211`);
   }
 
   return url;

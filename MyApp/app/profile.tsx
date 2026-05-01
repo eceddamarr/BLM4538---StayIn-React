@@ -173,7 +173,10 @@ export default function ProfileScreen() {
               <Ionicons name="chevron-forward" size={20} color="#cccccc" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuItem}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push('/incoming-requests' as never)}
+            >
               <View style={[styles.menuIconContainer, { backgroundColor: '#FFE8EB' }]}>
                 <MaterialCommunityIcons name="calendar-check" size={24} color="#ff5a5f" />
               </View>

@@ -16,36 +16,45 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomNav from '../components/BottomNav';
 import { useAuth } from '@/context/AuthContext';
 import { transformImageUrl } from '@/services/apiClient';
-import { getMyReservations, MyReservation } from '@/services/listingService';
+import { getIncomingRequests, approveReservation, rejectReservation, IncomingRequest } from '@/services/listingService';
 
 const statusMeta: Record<string, { label: string; color: string; bg: string; border: string }> = {
   Pending: { label: 'Beklemede', color: '#FF9500', bg: '#FFF7E8', border: '#FF9500' },
   Approved: { label: 'Onaylandı', color: '#1F9D55', bg: '#EAF8EF', border: '#1F9D55' },
   Rejected: { label: 'Reddedildi', color: '#D92D20', bg: '#FDECEC', border: '#D92D20' },
   Cancelled: { label: 'İptal', color: '#717171', bg: '#F2F2F2', border: '#BDBDBD' },
+  WaitingForPayment: { label: 'Ödeme Bekleniyor', color: '#0066FF', bg: '#E8F2FF', border: '#0066FF' },
+  Paid: { label: 'Ödendi', color: '#34c759', bg: '#E8F8F0', border: '#34c759' },
 };
 
 function formatDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-
   return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
 }
 
-function ReservationCard({
-  reservation,
-  onPay,
-  onCancel,
+function RequestCard({
+  request,
+  onApprove,
+  onReject,
   isProcessing,
 }: {
-  reservation: MyReservation;
-  onPay: () => void;
-  onCancel: () => void;
+  request: IncomingRequest;
+  onApprove: () => void;
+  onReject: () => void;
   isProcessing: boolean;
 }) {
-  const meta = statusMeta[reservation.status] || statusMeta.Pending;
-  const imageUrl = reservation.listingPhotoUrl
-    ? transformImageUrl(reservation.listingPhotoUrl)
+  // Determine display status
+  let displayStatus = request.status;
+  if (request.status === 'Approved' && !request.isPaid) {
+    displayStatus = 'WaitingForPayment';
+  } else if (request.status === 'Approved' && request.isPaid) {
+    displayStatus = 'Paid';
+  }
+
+  const meta = statusMeta[displayStatus] || statusMeta.Pending;
+  const imageUrl = request.listingPhotoUrl
+    ? transformImageUrl(request.listingPhotoUrl)
     : 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=900';
 
   return (
@@ -54,50 +63,50 @@ function ReservationCard({
       <View style={styles.cardBody}>
         <View style={styles.titleRow}>
           <Text style={styles.cardTitle} numberOfLines={1}>
-            {reservation.listingTitle}
+            {request.listingTitle}
           </Text>
           <View style={[styles.statusBadge, { backgroundColor: meta.bg, borderColor: meta.border }]}>
             <Text style={[styles.statusText, { color: meta.color }]}>{meta.label}</Text>
           </View>
         </View>
 
+        <View style={styles.guestRow}>
+          <Ionicons name="person" size={16} color="#222" />
+          <Text style={styles.infoText}>{request.guestName}</Text>
+          <Text style={styles.infoText}> • </Text>
+          <Text style={styles.infoText}>{request.guests} misafir</Text>
+        </View>
+
         <View style={styles.infoRow}>
           <Ionicons name="calendar" size={16} color="#222" />
           <Text style={styles.infoText}>
-            {formatDate(reservation.checkInDate)} - {formatDate(reservation.checkOutDate)}
+            {formatDate(request.checkInDate)} - {formatDate(request.checkOutDate)}
           </Text>
         </View>
 
         <View style={styles.bottomRow}>
-          <View style={styles.infoRow}>
-            <Ionicons name="person" size={16} color="#222" />
-            <Text style={styles.infoText}>{reservation.guests} misafir</Text>
-          </View>
-          <Text style={styles.price}>₺{reservation.totalPrice.toLocaleString('tr-TR')}</Text>
+          <Text style={styles.price}>₺{request.totalPrice.toLocaleString('tr-TR')}</Text>
         </View>
 
-        {reservation.status === 'Approved' && !reservation.isPaid && (
-          <View style={styles.paymentButtonRow}>
+        {request.status === 'Pending' && (
+          <View style={styles.buttonRow}>
             <TouchableOpacity
-              style={[styles.paymentButton, styles.payButton]}
-              onPress={onPay}
+              style={[styles.button, styles.rejectButton]}
+              onPress={onReject}
+              disabled={isProcessing}
+            >
+              <Text style={styles.rejectButtonText}>Reddet</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.button, styles.approveButton]}
+              onPress={onApprove}
               disabled={isProcessing}
             >
               {isProcessing ? (
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
-                <>
-                  <Ionicons name="card" size={16} color="#fff" />
-                  <Text style={styles.payButtonText}>Ödeme Yap</Text>
-                </>
+                <Text style={styles.approveButtonText}>Onayla</Text>
               )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.paymentButton, styles.cancelPaymentButton]}
-              onPress={onCancel}
-              disabled={isProcessing}
-            >
-              <Text style={styles.cancelPaymentButtonText}>Rezervasyonu İptal Et</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -106,19 +115,19 @@ function ReservationCard({
   );
 }
 
-export default function ReservationsScreen() {
+export default function IncomingRequestsScreen() {
   const router = useRouter();
   const { user, token, isLoading } = useAuth();
-  const [reservations, setReservations] = useState<MyReservation[]>([]);
+  const [requests, setRequests] = useState<IncomingRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [successModal, setSuccessModal] = useState({ visible: false, message: '' });
 
-  const loadReservations = useCallback(async () => {
+  const loadRequests = useCallback(async () => {
     if (!token) {
-      setReservations([]);
+      setRequests([]);
       setLoading(false);
       setRefreshing(false);
       return;
@@ -126,10 +135,10 @@ export default function ReservationsScreen() {
 
     try {
       setError('');
-      const data = await getMyReservations(token);
-      setReservations(data);
+      const data = await getIncomingRequests(token);
+      setRequests(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Rezervasyonlar yüklenemedi.');
+      setError(err instanceof Error ? err.message : 'Talepler yüklenemedi.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -138,41 +147,45 @@ export default function ReservationsScreen() {
 
   useEffect(() => {
     if (!isLoading) {
-      loadReservations();
+      loadRequests();
     }
-  }, [isLoading, loadReservations]);
+  }, [isLoading, loadRequests]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadReservations();
+    loadRequests();
   };
 
-  const handlePay = (reservationId: number) => {
-    setProcessingId(reservationId);
+  const handleApprove = async (requestId: number) => {
+    setProcessingId(requestId);
     try {
-      setSuccessModal({ visible: true, message: 'Ödeme işlemi başlatıldı!' });
-      setTimeout(() => {
-        setSuccessModal({ visible: false, message: '' });
-        setProcessingId(null);
-        loadReservations();
-      }, 1500);
+      const result = await approveReservation(requestId, token!);
+      if (result.success) {
+        setSuccessModal({ visible: true, message: 'Rezervasyon onaylandı!' });
+        await loadRequests();
+      } else {
+        setError(result.message);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Bir hata oluştu');
+    } finally {
       setProcessingId(null);
     }
   };
 
-  const handleCancel = (reservationId: number) => {
-    setProcessingId(reservationId);
+  const handleReject = async (requestId: number) => {
+    setProcessingId(requestId);
     try {
-      setSuccessModal({ visible: true, message: 'Rezervasyon iptal edildi!' });
-      setTimeout(() => {
-        setSuccessModal({ visible: false, message: '' });
-        setProcessingId(null);
-        loadReservations();
-      }, 1500);
+      const result = await rejectReservation(requestId, token!);
+      if (result.success) {
+        setSuccessModal({ visible: true, message: 'Rezervasyon reddedildi!' });
+        await loadRequests();
+      } else {
+        setError(result.message);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Bir hata oluştu');
+    } finally {
       setProcessingId(null);
     }
   };
@@ -189,7 +202,7 @@ export default function ReservationsScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Rezervasyonlarım</Text>
+          <Text style={styles.headerTitle}>Gelen Talepleri</Text>
         </View>
         <View style={styles.emptyState}>
           <Ionicons name="calendar-outline" size={48} color="#C7C7C7" />
@@ -198,7 +211,7 @@ export default function ReservationsScreen() {
             <Text style={styles.loginButtonText}>Giriş Yap</Text>
           </TouchableOpacity>
         </View>
-        <BottomNav activeTab="reservations" />
+        <BottomNav activeTab="profile" />
       </SafeAreaView>
     );
   }
@@ -229,7 +242,11 @@ export default function ReservationsScreen() {
       </Modal>
 
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Rezervasyonlarım</Text>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={28} color="#222" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Gelen Talepleri</Text>
+        <View style={{ width: 28 }} />
       </View>
 
       <ScrollView
@@ -240,25 +257,25 @@ export default function ReservationsScreen() {
       >
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        {reservations.length === 0 && !error ? (
+        {requests.length === 0 && !error ? (
           <View style={styles.emptyState}>
             <Ionicons name="calendar-outline" size={48} color="#C7C7C7" />
-            <Text style={styles.emptyTitle}>Henüz rezervasyonun yok</Text>
+            <Text style={styles.emptyTitle}>Henüz talebi yok</Text>
           </View>
         ) : (
-          reservations.map((reservation) => (
-            <ReservationCard
-              key={reservation.id}
-              reservation={reservation}
-              onPay={() => handlePay(reservation.id)}
-              onCancel={() => handleCancel(reservation.id)}
-              isProcessing={processingId === reservation.id}
+          requests.map((request) => (
+            <RequestCard
+              key={request.id}
+              request={request}
+              onApprove={() => handleApprove(request.id)}
+              onReject={() => handleReject(request.id)}
+              isProcessing={processingId === request.id}
             />
           ))
         )}
       </ScrollView>
 
-      <BottomNav activeTab="reservations" />
+      <BottomNav activeTab="profile" />
     </SafeAreaView>
   );
 }
@@ -279,6 +296,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#EBEBEB',
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   headerTitle: {
     fontSize: 18,
@@ -320,7 +339,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   cardTitle: {
     flex: 1,
@@ -338,17 +357,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  guestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginBottom: 10,
   },
   infoText: {
     fontSize: 15,
     color: '#555',
   },
   bottomRow: {
-    marginTop: 16,
+    marginTop: 10,
+    marginBottom: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -357,6 +384,39 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: '#FF5A5F',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    paddingTop: 14,
+  },
+  button: {
+    flex: 1,
+    height: 44,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rejectButton: {
+    borderWidth: 1.5,
+    borderColor: '#FF5A5F',
+    backgroundColor: '#fff',
+  },
+  rejectButtonText: {
+    color: '#FF5A5F',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  approveButton: {
+    backgroundColor: '#1F9D55',
+  },
+  approveButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
   },
   emptyState: {
     flex: 1,
@@ -389,41 +449,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 14,
-  },
-  paymentButtonRow: {
-    flexDirection: 'column',
-    gap: 12,
-    marginTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-    paddingTop: 14,
-  },
-  paymentButton: {
-    width: '100%',
-    height: 48,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  payButton: {
-    backgroundColor: '#1F9D55',
-  },
-  payButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  cancelPaymentButton: {
-    backgroundColor: '#fff',
-    borderWidth: 1.5,
-    borderColor: '#FF5A5F',
-  },
-  cancelPaymentButtonText: {
-    color: '#FF5A5F',
-    fontSize: 16,
-    fontWeight: '700',
   },
   modalOverlay: {
     flex: 1,
