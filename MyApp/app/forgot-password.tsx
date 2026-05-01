@@ -12,8 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-const API_URL = 'http://192.168.1.7:5000/api/auth';
+import { forgotPasswordApi, verifyCodeApi, resetPasswordApi } from '@/services/authService';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -35,23 +34,18 @@ export default function ForgotPasswordScreen() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/forgot-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim() }),
-      });
+      const result = await forgotPasswordApi(email.trim());
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        Alert.alert('Hata', data.message || 'Bir hata oluştu.');
+      if (!result.success) {
+        Alert.alert('Hata', result.message || 'Bir hata oluştu.');
         return;
       }
 
       Alert.alert('Başarılı', 'Doğrulama kodu email adresinize gönderildi.');
       setStep(2);
     } catch (err) {
-      Alert.alert('Hata', 'Bağlantı hatası. Lütfen tekrar deneyin.');
+      const errorMsg = err instanceof Error ? err.message : 'Bağlantı hatası. Lütfen tekrar deneyin.';
+      Alert.alert('Hata', errorMsg);
     } finally {
       setLoading(false);
     }
@@ -65,23 +59,18 @@ export default function ForgotPasswordScreen() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/verify-code`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), code: code.trim() }),
-      });
+      const result = await verifyCodeApi(email.trim(), code.trim());
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        Alert.alert('Hata', data.message || 'Kod doğrulama başarısız.');
+      if (!result.success) {
+        Alert.alert('Hata', result.message || 'Kod doğrulama başarısız.');
         return;
       }
 
       Alert.alert('Başarılı', 'Kod doğrulandı. Yeni şifrenizi belirleyebilirsiniz.');
       setStep(3);
     } catch (err) {
-      Alert.alert('Hata', 'Bağlantı hatası. Lütfen tekrar deneyin.');
+      const errorMsg = err instanceof Error ? err.message : 'Bağlantı hatası. Lütfen tekrar deneyin.';
+      Alert.alert('Hata', errorMsg);
     } finally {
       setLoading(false);
     }
@@ -105,28 +94,23 @@ export default function ForgotPasswordScreen() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/reset-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.trim(),
-          code: code.trim(),
-          newPassword,
-          newPasswordConfirm: confirmPassword,
-        }),
-      });
+      const result = await resetPasswordApi(
+        email.trim(),
+        code.trim(),
+        newPassword,
+        confirmPassword
+      );
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        Alert.alert('Hata', data.message || 'Şifre sıfırlama başarısız.');
+      if (!result.success) {
+        Alert.alert('Hata', result.message || 'Şifre sıfırlama başarısız.');
         return;
       }
 
       Alert.alert('Başarılı', 'Şifreniz başarıyla değiştirildi. Giriş yapabilirsiniz.');
       router.back();
     } catch (err) {
-      Alert.alert('Hata', 'Bağlantı hatası. Lütfen tekrar deneyin.');
+      const errorMsg = err instanceof Error ? err.message : 'Bağlantı hatası. Lütfen tekrar deneyin.';
+      Alert.alert('Hata', errorMsg);
     } finally {
       setLoading(false);
     }

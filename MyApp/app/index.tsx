@@ -111,6 +111,25 @@ export default function Index() {
     });
   };
 
+  const normalizeText = (text: string) => {
+    return text
+      .toLowerCase()
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  };
+
+  const filteredProperties = searchQuery.trim()
+    ? properties.filter((property) => {
+        const query = normalizeText(searchQuery);
+        const [city, district] = property.location
+          .split(',')
+          .map(loc => normalizeText(loc.trim()));
+
+        return city?.includes(query) || district?.includes(query);
+      })
+    : properties;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" />
@@ -121,7 +140,7 @@ export default function Index() {
           <Ionicons name="search" size={20} color="#717171" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Şehir ara"
+            placeholder="Şehir veya ilçe ara"
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholderTextColor="#717171"
@@ -143,18 +162,32 @@ export default function Index() {
         ) : (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Popüler İlanlar</Text>
-              <Text style={styles.sectionCount}>{properties.length} ilan</Text>
+              <Text style={styles.sectionTitle}>
+                {searchQuery.trim()
+                  ? `"${searchQuery}" Arama Sonuçları`
+                  : 'Popüler İlanlar'}
+              </Text>
+              <Text style={styles.sectionCount}>
+                {filteredProperties.length} ilan
+              </Text>
             </View>
 
-            {properties.map((property) => (
-              <PropertyCard
-                key={property.id}
-                property={property}
-                onPress={() => handlePropertyPress(property.id)}
-                onFavoritePress={() => handleFavoritePress(property.id)}
-              />
-            ))}
+            {filteredProperties.length > 0 ? (
+              filteredProperties.map((property) => (
+                <PropertyCard
+                  key={property.id}
+                  property={property}
+                  onPress={() => handlePropertyPress(property.id)}
+                  onFavoritePress={() => handleFavoritePress(property.id)}
+                />
+              ))
+            ) : searchQuery.trim() ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                  {`"${searchQuery}" ile eşleşen ilan bulunamadı`}
+                </Text>
+              </View>
+            ) : null}
           </View>
         )}
       </ScrollView>
@@ -263,6 +296,17 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 16,
     color: '#717171',
+  },
+  emptyContainer: {
+    minHeight: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#717171',
+    textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,
