@@ -52,6 +52,10 @@ export default function ProfileScreen() {
     }
   }
 
+  function handleForgotPassword() {
+    router.push('/forgot-password');
+  }
+
   async function handleLogout() {
     setShowLogoutModal(true);
   }
@@ -314,7 +318,11 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.forgotPasswordButton}>
+          <TouchableOpacity
+            style={styles.forgotPasswordButton}
+            onPress={handleForgotPassword}
+            disabled={submitting}
+          >
             <Text style={styles.forgotPasswordText}>Şifremi unuttum</Text>
           </TouchableOpacity>
 

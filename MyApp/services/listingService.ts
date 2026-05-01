@@ -250,6 +250,30 @@ export async function rejectReservation(
   }
 }
 
+// Cancel reservation (Guest)
+export async function cancelReservation(
+  reservationId: number,
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const result = await request<{ message: string }>(
+      `/Reservation/${reservationId}/cancel`,
+      {
+        method: 'POST',
+      },
+      token
+    );
+
+    return { success: true, message: result.message || 'Rezervasyon iptal edildi' };
+  } catch (error) {
+    console.error('Error cancelling reservation:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Rezervasyon iptal edilemedi'
+    };
+  }
+}
+
 // Add listing to favorites
 export async function addToFavorites(
   listingId: string | number,

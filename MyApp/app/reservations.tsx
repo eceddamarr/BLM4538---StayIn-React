@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomNav from '../components/BottomNav';
 import { useAuth } from '@/context/AuthContext';
 import { transformImageUrl } from '@/services/apiClient';
-import { getMyReservations, MyReservation } from '@/services/listingService';
+import { getMyReservations, MyReservation, cancelReservation } from '@/services/listingService';
 
 const statusMeta: Record<string, { label: string; color: string; bg: string; border: string }> = {
   Pending: { label: 'Beklemede', color: '#FF9500', bg: '#FFF7E8', border: '#FF9500' },
@@ -76,28 +76,34 @@ function ReservationCard({
           <Text style={styles.price}>₺{reservation.totalPrice.toLocaleString('tr-TR')}</Text>
         </View>
 
-        {reservation.status === 'Approved' && !reservation.isPaid && (
+        {(reservation.status === 'Approved' || reservation.status === 'Pending') && (
           <View style={styles.paymentButtonRow}>
-            <TouchableOpacity
-              style={[styles.paymentButton, styles.payButton]}
-              onPress={onPay}
-              disabled={isProcessing}
-            >
-              {isProcessing ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="card" size={16} color="#fff" />
-                  <Text style={styles.payButtonText}>Ödeme Yap</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            {reservation.status === 'Approved' && !reservation.isPaid && (
+              <TouchableOpacity
+                style={[styles.paymentButton, styles.payButton]}
+                onPress={onPay}
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="card" size={16} color="#fff" />
+                    <Text style={styles.payButtonText}>Ödeme Yap</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={[styles.paymentButton, styles.cancelPaymentButton]}
               onPress={onCancel}
               disabled={isProcessing}
             >
-              <Text style={styles.cancelPaymentButtonText}>Rezervasyonu İptal Et</Text>
+              {isProcessing ? (
+                <ActivityIndicator color="#FF5A5F" size="small" />
+              ) : (
+                <Text style={styles.cancelPaymentButtonText}>Rezervasyonu İptal Et</Text>
+              )}
             </TouchableOpacity>
           </View>
         )}
@@ -162,15 +168,21 @@ export default function ReservationsScreen() {
     }
   };
 
-  const handleCancel = (reservationId: number) => {
+  const handleCancel = async (reservationId: number) => {
     setProcessingId(reservationId);
     try {
-      setSuccessModal({ visible: true, message: 'Rezervasyon iptal edildi!' });
-      setTimeout(() => {
-        setSuccessModal({ visible: false, message: '' });
+      const response = await cancelReservation(reservationId, token!);
+      if (response.success) {
+        setSuccessModal({ visible: true, message: 'Rezervasyonun iptal edildi. Host tarafında da iptal olarak görünecek.' });
+        setTimeout(() => {
+          setSuccessModal({ visible: false, message: '' });
+          setProcessingId(null);
+          loadReservations();
+        }, 1500);
+      } else {
+        setError(response.message);
         setProcessingId(null);
-        loadReservations();
-      }, 1500);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Bir hata oluştu');
       setProcessingId(null);
