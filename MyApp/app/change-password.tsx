@@ -74,7 +74,7 @@ export default function ChangePasswordScreen() {
       } else {
         showAlert('error', 'Hata', result.message);
       }
-    } catch (error) {
+    } catch (_error) {
       showAlert('error', 'Hata', 'Şifre değiştirilemedi');
     } finally {
       setLoading(false);
@@ -147,7 +147,7 @@ export default function ChangePasswordScreen() {
 
           <Text style={styles.label}>Yeni Şifre</Text>
           <View style={styles.inputWrapper}>
-            <MaterialCommunityIcons name="lock-reset-outline" size={20} color="#8a8a8a" />
+            <MaterialCommunityIcons name="lock-check-outline" size={20} color="#8a8a8a" />
             <TextInput
               style={styles.input}
               placeholder="Yeni şifrenizi girin"

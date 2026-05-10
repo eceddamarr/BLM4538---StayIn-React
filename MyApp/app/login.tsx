@@ -45,6 +45,10 @@ export default function LoginScreen() {
     }
   }
 
+  function handleForgotPassword() {
+    router.push('/forgot-password');
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -111,7 +115,7 @@ export default function LoginScreen() {
 
           <TouchableOpacity
             style={styles.forgotPasswordButton}
-            onPress={() => router.push('/forgot-password')}
+            onPress={handleForgotPassword}
             disabled={submitting}
           >
             <Text style={styles.forgotPasswordText}>Şifremi Unuttum?</Text>
