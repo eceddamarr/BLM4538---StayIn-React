@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using StayIn.Api.Data;
 
@@ -11,9 +12,11 @@ using StayIn.Api.Data;
 namespace StayinApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260510140831_AddPaymentTable")]
+    partial class AddPaymentTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -114,7 +117,7 @@ namespace StayinApi.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Listings", (string)null);
+                    b.ToTable("Listings");
 
                     b.HasData(
                         new
@@ -935,6 +938,9 @@ namespace StayinApi.Migrations
                     b.Property<int>("ReservationId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("ReservationId1")
+                        .HasColumnType("int");
+
                     b.Property<string>("TransactionId")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -942,10 +948,13 @@ namespace StayinApi.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ReservationId")
-                        .IsUnique();
+                    b.HasIndex("ReservationId");
 
-                    b.ToTable("Payments", (string)null);
+                    b.HasIndex("ReservationId1")
+                        .IsUnique()
+                        .HasFilter("[ReservationId1] IS NOT NULL");
+
+                    b.ToTable("Payments");
                 });
 
             modelBuilder.Entity("StayIn.Api.Models.Reservation", b =>
@@ -1005,7 +1014,7 @@ namespace StayinApi.Migrations
 
                     b.HasIndex("ListingId");
 
-                    b.ToTable("Reservations", (string)null);
+                    b.ToTable("Reservations");
                 });
 
             modelBuilder.Entity("StayIn.Api.Models.User", b =>
@@ -1051,7 +1060,7 @@ namespace StayinApi.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
 
                     b.HasData(
                         new
@@ -1118,10 +1127,14 @@ namespace StayinApi.Migrations
             modelBuilder.Entity("StayIn.Api.Models.Payment", b =>
                 {
                     b.HasOne("StayIn.Api.Models.Reservation", "Reservation")
-                        .WithOne("Payment")
-                        .HasForeignKey("StayIn.Api.Models.Payment", "ReservationId")
+                        .WithMany()
+                        .HasForeignKey("ReservationId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("StayIn.Api.Models.Reservation", null)
+                        .WithOne("Payment")
+                        .HasForeignKey("StayIn.Api.Models.Payment", "ReservationId1");
 
                     b.Navigation("Reservation");
                 });

@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomNav from '../components/BottomNav';
+import PaymentModal from '../components/PaymentModal';
 import { useAuth } from '@/context/AuthContext';
 import { transformImageUrl } from '@/services/apiClient';
 import { getMyReservations, MyReservation, cancelReservation } from '@/services/listingService';
@@ -23,6 +24,7 @@ const statusMeta: Record<string, { label: string; color: string; bg: string; bor
   Approved: { label: 'Onaylandı', color: '#1F9D55', bg: '#EAF8EF', border: '#1F9D55' },
   Rejected: { label: 'Reddedildi', color: '#D92D20', bg: '#FDECEC', border: '#D92D20' },
   Cancelled: { label: 'İptal', color: '#717171', bg: '#F2F2F2', border: '#BDBDBD' },
+  Paid: { label: 'Ödendi', color: '#34c759', bg: '#E8F8F0', border: '#34c759' },
 };
 
 function formatDate(value: string) {
@@ -43,7 +45,13 @@ function ReservationCard({
   onCancel: () => void;
   isProcessing: boolean;
 }) {
-  const meta = statusMeta[reservation.status] || statusMeta.Pending;
+  const meta = (() => {
+    let displayStatus = reservation.status;
+    if (reservation.status === 'Approved' && reservation.isPaid) {
+      displayStatus = 'Paid';
+    }
+    return statusMeta[displayStatus] || statusMeta.Pending;
+  })();
   const imageUrl = reservation.listingPhotoUrl
     ? transformImageUrl(reservation.listingPhotoUrl)
     : 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=900';
@@ -121,6 +129,7 @@ export default function ReservationsScreen() {
   const [error, setError] = useState('');
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [successModal, setSuccessModal] = useState({ visible: false, message: '' });
+  const [paymentModal, setPaymentModal] = useState({ visible: false, reservationId: 0, amount: 0 });
 
   const loadReservations = useCallback(async () => {
     if (!token) {
@@ -153,19 +162,12 @@ export default function ReservationsScreen() {
     loadReservations();
   };
 
-  const handlePay = (reservationId: number) => {
-    setProcessingId(reservationId);
-    try {
-      setSuccessModal({ visible: true, message: 'Ödeme işlemi başlatıldı!' });
-      setTimeout(() => {
-        setSuccessModal({ visible: false, message: '' });
-        setProcessingId(null);
-        loadReservations();
-      }, 1500);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Bir hata oluştu');
-      setProcessingId(null);
-    }
+  const handlePay = (reservation: MyReservation) => {
+    setPaymentModal({
+      visible: true,
+      reservationId: reservation.id,
+      amount: reservation.totalPrice,
+    });
   };
 
   const handleCancel = async (reservationId: number) => {
@@ -240,6 +242,21 @@ export default function ReservationsScreen() {
         </View>
       </Modal>
 
+      <PaymentModal
+        visible={paymentModal.visible}
+        reservationId={paymentModal.reservationId}
+        amount={paymentModal.amount}
+        onClose={() => setPaymentModal({ ...paymentModal, visible: false })}
+        onSuccess={() => {
+          setSuccessModal({ visible: true, message: 'Ödeme işlemi başarıyla tamamlandı!' });
+          setTimeout(() => {
+            setSuccessModal({ visible: false, message: '' });
+            loadReservations();
+          }, 1500);
+        }}
+        token={token!}
+      />
+
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Rezervasyonlarım</Text>
       </View>
@@ -262,7 +279,7 @@ export default function ReservationsScreen() {
             <ReservationCard
               key={reservation.id}
               reservation={reservation}
-              onPay={() => handlePay(reservation.id)}
+              onPay={() => handlePay(reservation)}
               onCancel={() => handleCancel(reservation.id)}
               isProcessing={processingId === reservation.id}
             />

@@ -1,10 +1,10 @@
 import { useAuth } from '@/context/AuthContext';
+import { useAlert } from '@/context/AlertContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     ScrollView,
     StyleSheet,
     Text,
@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function LoginScreen() {
   const router = useRouter();
   const { login } = useAuth();
+  const { showAlert } = useAlert();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,7 +26,12 @@ export default function LoginScreen() {
 
   async function handleLogin() {
     if (!email.trim() || !password) {
-      Alert.alert('Hata', 'Lütfen tüm alanları doldurun.');
+      showAlert({
+        title: 'Hata',
+        message: 'Lütfen tüm alanları doldurun.',
+        type: 'error',
+        buttons: [{ text: 'Tamam', style: 'default' }],
+      });
       return;
     }
 
@@ -35,11 +41,15 @@ export default function LoginScreen() {
         email: email.trim(),
         password,
       });
-      // Giriş başarılı → AuthContext user'ı set eder
       router.back();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Giriş başarısız.';
-      Alert.alert('Giriş Hatası', message);
+      showAlert({
+        title: 'Giriş Hatası',
+        message,
+        type: 'error',
+        buttons: [{ text: 'Tamam', style: 'default' }],
+      });
     } finally {
       setSubmitting(false);
     }

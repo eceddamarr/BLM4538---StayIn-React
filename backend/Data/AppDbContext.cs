@@ -22,7 +22,6 @@ public class AppDbContext : DbContext
 
         // Şuanlik sadece Listings
         modelBuilder.Ignore<Review>();
-        modelBuilder.Ignore<Payment>();
 
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Email)
@@ -54,6 +53,16 @@ public class AppDbContext : DbContext
             .HasForeignKey(r => r.HostId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<Payment>()
+            .Property(p => p.Amount)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<Payment>()
+            .HasOne(p => p.Reservation)
+            .WithOne(r => r.Payment)
+            .HasForeignKey<Payment>(p => p.ReservationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // User Favorites kolonunu JSON olarak sakla
         modelBuilder.Entity<User>()
             .Property(u => u.Favorites)
@@ -62,6 +71,13 @@ public class AppDbContext : DbContext
                 v => string.IsNullOrWhiteSpace(v)
                     ? new List<int>()
                     : System.Text.Json.JsonSerializer.Deserialize<List<int>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<int>()
+            )
+            .Metadata.SetValueComparer(
+                new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<List<int>>(
+                    (c1, c2) => c1!.SequenceEqual(c2!),
+                    c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+                    c => c.ToList()
+                )
             );
 
         // Örnek kullanıcılar

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using StayIn.Api.Data;
 using StayIn.Api.Models;
 using System.Security.Claims;
+using System.ComponentModel.DataAnnotations;
 
 namespace StayIn.Api.Controllers
 {
@@ -398,8 +399,13 @@ namespace StayIn.Api.Controllers
         public class CreateReservationRequest
         {
             public int ListingId { get; set; }
-            public string CheckInDate { get; set; }
-            public string CheckOutDate { get; set; }
+
+            [Required]
+            public string CheckInDate { get; set; } = default!;
+
+            [Required]
+            public string CheckOutDate { get; set; } = default!;
+
             public int Guests { get; set; }
         }
     }

@@ -484,3 +484,47 @@ export async function unarchiveListing(
     };
   }
 }
+
+export interface PaymentDTO {
+  reservationId: number;
+  cardNumber: string;
+  cvv: string;
+  expiryDate: string;
+  cardholderName: string;
+  amount?: number;
+}
+
+// Process payment
+export async function processPayment(
+  paymentData: PaymentDTO,
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const [month, year] = paymentData.expiryDate.split('/');
+    const payload = {
+      cardNumber: paymentData.cardNumber.replace(/\s+/g, ''),
+      cardHolder: paymentData.cardholderName,
+      expiryMonth: month,
+      expiryYear: `20${year}`,
+      cvv: paymentData.cvv,
+      amount: paymentData.amount || 0,
+    };
+
+    const result = await request<{ message: string }>(
+      `/Payments/reservation/${paymentData.reservationId}`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+      token
+    );
+
+    return { success: true, message: result.message || 'Ödeme başarıyla işlendi' };
+  } catch (error) {
+    console.error('Error processing payment:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Ödeme işlenemedi'
+    };
+  }
+}
