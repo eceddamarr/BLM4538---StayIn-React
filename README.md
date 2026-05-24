@@ -7,4 +7,4 @@
 6. hafta video Linki: https://youtu.be/R5kW5GJdlDU            
 7. hafta video linki: https://youtu.be/a9rNQm9mGro
 8. hafta video linki: https://youtu.be/TrOXKW3_NqU
-
+9. hafta video linki: https://youtu.be/BCT20uTYMpc
