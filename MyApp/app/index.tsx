@@ -17,7 +17,7 @@ import BottomNav from '../components/BottomNav';
 import PropertyCard from '../components/PropertyCard';
 import { sampleProperties } from '../data/sampleProperties';
 import { Property } from '../types/property';
-import { getAllListings, getUserFavorites, addToFavorites, removeFromFavorites } from '../services/listingService';
+import { getAllListings, getUserFavorites, addToFavorites, removeFromFavorites, getListingReviews } from '../services/listingService';
 import { useAuth } from '../context/AuthContext';
 
 export default function Index() {
@@ -27,6 +27,14 @@ export default function Index() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [filters, setFilters] = useState({
+    minPrice: '',
+    maxPrice: '',
+    guests: '',
+    bedrooms: '',
+    placeType: '',
+  });
 
   // Fetch listings from API
   useEffect(() => {
@@ -48,14 +56,39 @@ export default function Index() {
         }
 
         // isFavorite alanını güncelle
-        const listingsWithFavorites = (filteredListings.length > 0 ? filteredListings : sampleProperties).map(
+        const shouldUseSampleProperties = filteredListings.length === 0;
+        const listingSource = shouldUseSampleProperties ? sampleProperties : filteredListings;
+
+        const listingsWithFavorites = listingSource.map(
           (listing) => ({
             ...listing,
             isFavorite: favoriteIds.includes(listing.id),
           })
         );
 
-        setProperties(listingsWithFavorites);
+        const listingsWithReviews = shouldUseSampleProperties
+          ? listingsWithFavorites
+          : await Promise.all(
+              listingsWithFavorites.map(async (listing) => {
+                const reviewSummary = await getListingReviews(Number(listing.id));
+
+                return {
+                  ...listing,
+                  rating: reviewSummary.averageRating,
+                  reviewCount: reviewSummary.totalReviews,
+                };
+              })
+            );
+
+        listingsWithReviews.sort((a, b) => {
+          if (b.reviewCount !== a.reviewCount) {
+            return b.reviewCount - a.reviewCount;
+          }
+
+          return b.rating - a.rating;
+        });
+
+        setProperties(listingsWithReviews);
       } catch (error) {
         console.error('Error loading listings:', error);
         setProperties(sampleProperties);
@@ -119,16 +152,53 @@ export default function Index() {
       .replace(/[\u0300-\u036f]/g, '');
   };
 
-  const filteredProperties = searchQuery.trim()
-    ? properties.filter((property) => {
-        const query = normalizeText(searchQuery);
-        const [city, district] = property.location
-          .split(',')
-          .map(loc => normalizeText(loc.trim()));
+  const placeTypeOptions = Array.from(
+    new Set(properties.map((property) => property.placeType).filter(Boolean) as string[])
+  ).sort((a, b) => a.localeCompare(b, 'tr'));
 
-        return city?.includes(query) || district?.includes(query);
-      })
-    : properties;
+  const activeFilterCount = [
+    filters.minPrice,
+    filters.maxPrice,
+    filters.guests,
+    filters.bedrooms,
+    filters.placeType,
+  ].filter(Boolean).length;
+
+  const resetFilters = () => {
+    setFilters({
+      minPrice: '',
+      maxPrice: '',
+      guests: '',
+      bedrooms: '',
+      placeType: '',
+    });
+  };
+
+  const filteredProperties = properties.filter((property) => {
+    if (searchQuery.trim()) {
+      const query = normalizeText(searchQuery);
+      const [city, district] = property.location
+        .split(',')
+        .map(loc => normalizeText(loc.trim()));
+
+      if (!city?.includes(query) && !district?.includes(query)) {
+        return false;
+      }
+    }
+
+    const minPrice = Number(filters.minPrice);
+    const maxPrice = Number(filters.maxPrice);
+    const minGuests = Number(filters.guests);
+    const minBedrooms = Number(filters.bedrooms);
+
+    if (filters.minPrice && property.price < minPrice) return false;
+    if (filters.maxPrice && property.price > maxPrice) return false;
+    if (filters.guests && (property.guests || 0) < minGuests) return false;
+    if (filters.bedrooms && (property.bedrooms || 0) < minBedrooms) return false;
+    if (filters.placeType && property.placeType !== filters.placeType) return false;
+
+    return true;
+  });
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -136,15 +206,25 @@ export default function Index() {
 
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#717171" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Şehir veya ilçe ara"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholderTextColor="#717171"
-          />
+        <View style={styles.headerRow}>
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#717171" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Şehir veya ilçe ara"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#717171"
+            />
+          </View>
+          <TouchableOpacity style={styles.filterButton} onPress={() => setShowFilterModal(true)}>
+            <Ionicons name="options-outline" size={22} color={activeFilterCount ? '#FF385C' : '#222'} />
+            {activeFilterCount > 0 && (
+              <View style={styles.filterCountBadge}>
+                <Text style={styles.filterCountText}>{activeFilterCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -195,6 +275,101 @@ export default function Index() {
       {/* Bottom Navigation */}
       <BottomNav activeTab="explore" />
 
+      <Modal
+        visible={showFilterModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowFilterModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.filterModalContent}>
+            <View style={styles.filterHeader}>
+              <Text style={styles.filterTitle}>Filtreler</Text>
+              <TouchableOpacity style={styles.iconButton} onPress={() => setShowFilterModal(false)}>
+                <Ionicons name="close" size={22} color="#222" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.filterLabel}>Gecelik fiyat</Text>
+            <View style={styles.filterInputRow}>
+              <TextInput
+                style={styles.filterInput}
+                value={filters.minPrice}
+                onChangeText={(minPrice) => setFilters((prev) => ({ ...prev, minPrice }))}
+                placeholder="Min"
+                placeholderTextColor="#999"
+                keyboardType="numeric"
+              />
+              <TextInput
+                style={styles.filterInput}
+                value={filters.maxPrice}
+                onChangeText={(maxPrice) => setFilters((prev) => ({ ...prev, maxPrice }))}
+                placeholder="Max"
+                placeholderTextColor="#999"
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.filterInputRow}>
+              <View style={styles.filterField}>
+                <Text style={styles.filterLabel}>Misafir</Text>
+                <TextInput
+                  style={styles.filterInput}
+                  value={filters.guests}
+                  onChangeText={(guests) => setFilters((prev) => ({ ...prev, guests }))}
+                  placeholder="En az"
+                  placeholderTextColor="#999"
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={styles.filterField}>
+                <Text style={styles.filterLabel}>Yatak odası</Text>
+                <TextInput
+                  style={styles.filterInput}
+                  value={filters.bedrooms}
+                  onChangeText={(bedrooms) => setFilters((prev) => ({ ...prev, bedrooms }))}
+                  placeholder="En az"
+                  placeholderTextColor="#999"
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+
+            <Text style={styles.filterLabel}>Mekan türü</Text>
+            <View style={styles.chipGrid}>
+              {placeTypeOptions.map((placeType) => {
+                const selected = filters.placeType === placeType;
+                return (
+                  <TouchableOpacity
+                    key={placeType}
+                    style={[styles.filterChip, selected && styles.filterChipSelected]}
+                    onPress={() =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        placeType: selected ? '' : placeType,
+                      }))
+                    }
+                  >
+                    <Text style={[styles.filterChipText, selected && styles.filterChipTextSelected]}>
+                      {placeType}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={styles.filterActions}>
+              <TouchableOpacity style={styles.clearFilterButton} onPress={resetFilters}>
+                <Text style={styles.clearFilterText}>Temizle</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.applyFilterButton} onPress={() => setShowFilterModal(false)}>
+                <Text style={styles.applyFilterText}>Sonuçları Göster</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Login Modal */}
       <Modal
         visible={showLoginModal}
@@ -244,7 +419,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#EBEBEB',
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   searchContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F7F7F7',
@@ -259,6 +440,33 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#222',
+  },
+  filterButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterCountBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    minWidth: 17,
+    height: 17,
+    borderRadius: 9,
+    backgroundColor: '#FF385C',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  filterCountText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
   },
   scrollView: {
     flex: 1,
@@ -324,6 +532,121 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  filterModalContent: {
+    width: '100%',
+    maxWidth: 430,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  filterHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+  filterTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#222',
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F7F7F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#222',
+    marginBottom: 8,
+  },
+  filterInputRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  filterField: {
+    flex: 1,
+  },
+  filterInput: {
+    flex: 1,
+    height: 46,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    backgroundColor: '#FAFAFA',
+    paddingHorizontal: 12,
+    fontSize: 15,
+    color: '#222',
+  },
+  chipGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 18,
+  },
+  filterChip: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  filterChipSelected: {
+    borderColor: '#FF385C',
+    backgroundColor: '#FFF0F2',
+  },
+  filterChipText: {
+    color: '#222',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  filterChipTextSelected: {
+    color: '#FF385C',
+  },
+  filterActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  clearFilterButton: {
+    flex: 1,
+    height: 46,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  clearFilterText: {
+    color: '#222',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  applyFilterButton: {
+    flex: 1.5,
+    height: 46,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF385C',
+  },
+  applyFilterText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
   },
   modalTitle: {
     fontSize: 20,

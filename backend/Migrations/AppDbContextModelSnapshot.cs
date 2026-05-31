@@ -114,7 +114,7 @@ namespace StayinApi.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Listings", (string)null);
+                    b.ToTable("Listings");
 
                     b.HasData(
                         new
@@ -945,7 +945,7 @@ namespace StayinApi.Migrations
                     b.HasIndex("ReservationId")
                         .IsUnique();
 
-                    b.ToTable("Payments", (string)null);
+                    b.ToTable("Payments");
                 });
 
             modelBuilder.Entity("StayIn.Api.Models.Reservation", b =>
@@ -980,9 +980,6 @@ namespace StayinApi.Migrations
                     b.Property<int>("ListingId")
                         .HasColumnType("int");
 
-                    b.Property<DateTime?>("PaymentDate")
-                        .HasColumnType("datetime2");
-
                     b.Property<DateTime?>("ResponsedAt")
                         .HasColumnType("datetime2");
 
@@ -994,9 +991,6 @@ namespace StayinApi.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("TransactionId")
-                        .HasColumnType("nvarchar(max)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("GuestId");
@@ -1005,7 +999,47 @@ namespace StayinApi.Migrations
 
                     b.HasIndex("ListingId");
 
-                    b.ToTable("Reservations", (string)null);
+                    b.ToTable("Reservations");
+                });
+
+            modelBuilder.Entity("StayIn.Api.Models.Review", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Comment")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("GuestId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ListingId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ReservationId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GuestId");
+
+                    b.HasIndex("ReservationId");
+
+                    b.HasIndex("ListingId", "GuestId")
+                        .IsUnique();
+
+                    b.ToTable("Reviews");
                 });
 
             modelBuilder.Entity("StayIn.Api.Models.User", b =>
@@ -1051,7 +1085,7 @@ namespace StayinApi.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
 
                     b.HasData(
                         new
@@ -1103,6 +1137,86 @@ namespace StayinApi.Migrations
                             PasswordHash = "$2a$11$5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5OqK5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3",
                             PhoneNumber = "05368889900",
                             Role = "User"
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Email = "ece@stayin.dev",
+                            Favorites = "[20,18,15]",
+                            FullName = "Ece Damar",
+                            PasswordHash = "$2a$11$5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5OqK5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3",
+                            PhoneNumber = "05366666666",
+                            Role = "User"
+                        },
+                        new
+                        {
+                            Id = 7,
+                            Email = "hevin@stayin.dev",
+                            Favorites = "[24,2,30]",
+                            FullName = "Sevgin Açık",
+                            PasswordHash = "$2a$11$5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5OqK5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3",
+                            PhoneNumber = "05555555555",
+                            Role = "User"
+                        },
+                        new
+                        {
+                            Id = 8,
+                            Email = "merve@stayin.dev",
+                            Favorites = "[]",
+                            FullName = "Merve Çetin",
+                            PasswordHash = "$2a$11$5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5OqK5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3",
+                            PhoneNumber = "05344444444",
+                            Role = "User"
+                        },
+                        new
+                        {
+                            Id = 9,
+                            Email = "berkay@stayin.dev",
+                            Favorites = "[28]",
+                            FullName = "Berkay Yıldız",
+                            PasswordHash = "$2a$11$5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5OqK5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3",
+                            PhoneNumber = "05361111111",
+                            Role = "User"
+                        },
+                        new
+                        {
+                            Id = 10,
+                            Email = "ceyda@stayin.dev",
+                            Favorites = "[]",
+                            FullName = "Ceyda Demir",
+                            PasswordHash = "$2a$11$5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5OqK5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3",
+                            PhoneNumber = "05377777777",
+                            Role = "User"
+                        },
+                        new
+                        {
+                            Id = 12,
+                            Email = "aleyna@stayin.dev",
+                            Favorites = "[]",
+                            FullName = "Aleyna Taşdemir",
+                            PasswordHash = "$2a$11$5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5OqK5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3",
+                            PhoneNumber = "05441785678",
+                            Role = "User"
+                        },
+                        new
+                        {
+                            Id = 13,
+                            Email = "fatma@stayin.dev",
+                            Favorites = "[]",
+                            FullName = "Fatma Demir",
+                            PasswordHash = "$2a$11$5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5OqK5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3",
+                            PhoneNumber = "05431234567",
+                            Role = "User"
+                        },
+                        new
+                        {
+                            Id = 14,
+                            Email = "elif@stayin.dev",
+                            Favorites = "[]",
+                            FullName = "Elif Gün",
+                            PasswordHash = "$2a$11$5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5OqK5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3",
+                            PhoneNumber = "0565 456 77 88",
+                            Role = "User"
                         });
                 });
 
@@ -1151,6 +1265,38 @@ namespace StayinApi.Migrations
                     b.Navigation("Host");
 
                     b.Navigation("Listing");
+                });
+
+            modelBuilder.Entity("StayIn.Api.Models.Review", b =>
+                {
+                    b.HasOne("StayIn.Api.Models.User", "Guest")
+                        .WithMany()
+                        .HasForeignKey("GuestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("StayIn.Api.Models.Listing", "Listing")
+                        .WithMany("Reviews")
+                        .HasForeignKey("ListingId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("StayIn.Api.Models.Reservation", "Reservation")
+                        .WithMany()
+                        .HasForeignKey("ReservationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Guest");
+
+                    b.Navigation("Listing");
+
+                    b.Navigation("Reservation");
+                });
+
+            modelBuilder.Entity("StayIn.Api.Models.Listing", b =>
+                {
+                    b.Navigation("Reviews");
                 });
 
             modelBuilder.Entity("StayIn.Api.Models.Reservation", b =>

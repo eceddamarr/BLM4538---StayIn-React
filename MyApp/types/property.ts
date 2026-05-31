@@ -8,4 +8,11 @@ export interface Property {
   image: string;
   isFavorite: boolean;
   userId?: number;
+  placeType?: string;
+  accommodationType?: string;
+  guests?: number;
+  bedrooms?: number;
+  beds?: number;
+  bathrooms?: number;
+  amenities?: string[];
 }

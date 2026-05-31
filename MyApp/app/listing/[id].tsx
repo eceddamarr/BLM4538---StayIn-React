@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,11 +16,22 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import DatePicker from 'react-native-ui-datepicker';
+import DatePicker, { useDefaultStyles } from 'react-native-ui-datepicker';
 import dayjs from 'dayjs';
 import 'dayjs/locale/tr';
 import { useAuth } from '@/context/AuthContext';
-import { getListingById, createReservation, ReservationDTO, addToFavorites, removeFromFavorites, checkIsFavorite } from '@/services/listingService';
+import {
+  getListingById,
+  createReservation,
+  ReservationDTO,
+  addToFavorites,
+  removeFromFavorites,
+  checkIsFavorite,
+  getListingReviews,
+  ListingReviewSummary,
+  getListingBookedRanges,
+  BookedDateRange,
+} from '@/services/listingService';
 import { transformImageUrl } from '@/services/apiClient';
 
 dayjs.locale('tr');
@@ -55,6 +66,7 @@ interface ListingDetail {
 }
 
 export default function ListingDetailScreen() {
+  const defaultDatePickerStyles = useDefaultStyles();
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const { user, token } = useAuth();
@@ -69,31 +81,120 @@ export default function ListingDetailScreen() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [reviewSummary, setReviewSummary] = useState<ListingReviewSummary>({
+    totalReviews: 0,
+    averageRating: 0,
+    reviews: [],
+  });
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [bookedRanges, setBookedRanges] = useState<BookedDateRange[]>([]);
   const [reservationData, setReservationData] = useState({
     checkIn: '',
-    nights: 1,
+    checkOut: '',
+    nights: 0,
     guests: 1,
   });
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedStartDate, setSelectedStartDate] = useState<Date | undefined>(undefined);
+  const [selectedEndDate, setSelectedEndDate] = useState<Date | undefined>(undefined);
 
   const getTotalPrice = () => {
     return listing ? Math.round(listing.price * reservationData.nights) : 0;
   };
 
-  const handleDateChange = (params: any) => {
-    const date = params.date;
-    if (date) {
-      setSelectedDate(date);
-      const formattedDate = dayjs(date).format('YYYY-MM-DD');
-      setReservationData({
-        ...reservationData,
-        checkIn: formattedDate,
-      });
+  const bookedDates = useMemo(() => {
+    const dates: Date[] = [];
+
+    bookedRanges.forEach((range) => {
+      const start = dayjs(range.checkInDate).startOf('day');
+      const end = dayjs(range.checkOutDate).startOf('day');
+
+      if (!start.isValid() || !end.isValid()) return;
+
+      let current = start;
+      while (current.isBefore(end)) {
+        dates.push(current.toDate());
+        current = current.add(1, 'day');
+      }
+    });
+
+    return dates;
+  }, [bookedRanges]);
+
+  const isDateBooked = (value: any) => {
+    const date = dayjs(value).startOf('day');
+    if (!date.isValid()) return false;
+
+    return bookedRanges.some((range) => {
+      const start = dayjs(range.checkInDate).startOf('day');
+      const end = dayjs(range.checkOutDate).startOf('day');
+      return date.isSame(start) || (date.isAfter(start) && date.isBefore(end));
+    });
+  };
+
+  const hasBookedDateInRange = (checkIn: string, checkOut: string) => {
+    if (!checkIn || !checkOut) return false;
+
+    const start = dayjs(checkIn).startOf('day');
+    const end = dayjs(checkOut).startOf('day');
+
+    if (!start.isValid() || !end.isValid() || !end.isAfter(start)) return false;
+
+    return bookedRanges.some((range) => {
+      const bookedStart = dayjs(range.checkInDate).startOf('day');
+      const bookedEnd = dayjs(range.checkOutDate).startOf('day');
+      return start.isBefore(bookedEnd) && end.isAfter(bookedStart);
+    });
+  };
+
+  const showBookedDateError = () => {
+    setErrorMessage('Seçtiğiniz konaklama aralığında dolu gün var. Lütfen farklı tarih veya gece sayısı seçin.');
+    setShowErrorModal(true);
+  };
+
+  const handleDateRangeChange = (params: any) => {
+    const startDate = params.startDate;
+    const endDate = params.endDate;
+
+    if (startDate && isDateBooked(startDate)) {
+      setErrorMessage('Bu giriş tarihi dolu. Lütfen müsait bir tarih seçin.');
+      setShowErrorModal(true);
+      return;
     }
+
+    const formattedStart = startDate ? dayjs(startDate).format('YYYY-MM-DD') : '';
+    const formattedEnd = endDate ? dayjs(endDate).format('YYYY-MM-DD') : '';
+    const nights = formattedStart && formattedEnd
+      ? dayjs(formattedEnd).diff(dayjs(formattedStart), 'day')
+      : 0;
+
+    if (formattedStart && formattedEnd && nights <= 0) {
+      setErrorMessage('Çıkış tarihi giriş tarihinden sonra olmalıdır.');
+      setShowErrorModal(true);
+      return;
+    }
+
+    if (hasBookedDateInRange(formattedStart, formattedEnd)) {
+      showBookedDateError();
+      return;
+    }
+
+    setSelectedStartDate(startDate ? dayjs(startDate).toDate() : undefined);
+    setSelectedEndDate(endDate ? dayjs(endDate).toDate() : undefined);
+    setReservationData({
+      ...reservationData,
+      checkIn: formattedStart,
+      checkOut: formattedEnd,
+      nights,
+    });
   };
 
   const confirmDateSelection = () => {
     setShowDatePicker(false);
+  };
+
+  const formatReviewDate = (value: string) => {
+    const date = dayjs(value);
+    return date.isValid() ? date.format('D MMMM YYYY') : value;
   };
 
   useEffect(() => {
@@ -103,13 +204,18 @@ export default function ListingDetailScreen() {
   const fetchListingDetail = async () => {
     try {
       setLoading(true);
-      const data = await getListingById(parseInt(id as string));
+      const listingId = parseInt(id as string);
+      const data = await getListingById(listingId);
       setListing(data);
+      setReviewsLoading(true);
+      getListingReviews(listingId)
+        .then(setReviewSummary)
+        .finally(() => setReviewsLoading(false));
+      getListingBookedRanges(listingId).then(setBookedRanges);
 
       // İlan favorilerde mi kontrol et
       if (user && token) {
         try {
-          const listingId = parseInt(id as string);
           const favorite = await checkIsFavorite(listingId.toString(), token);
           setIsFavorite(favorite);
         } catch (error) {
@@ -168,14 +274,14 @@ export default function ListingDetailScreen() {
   };
 
   const submitReservation = async () => {
-    if (!reservationData.checkIn) {
-      setErrorMessage('Lütfen giriş tarihini seçin');
+    if (!reservationData.checkIn || !reservationData.checkOut) {
+      setErrorMessage('Lütfen giriş ve çıkış tarihlerini seçin');
       setShowErrorModal(true);
       return;
     }
 
     if (reservationData.nights <= 0) {
-      setErrorMessage('Gece sayısı 0 dan büyük olmalıdır');
+      setErrorMessage('Konaklama süresi en az 1 gece olmalıdır');
       setShowErrorModal(true);
       return;
     }
@@ -198,26 +304,19 @@ export default function ListingDetailScreen() {
       return;
     }
 
+    if (hasBookedDateInRange(reservationData.checkIn, reservationData.checkOut)) {
+      setErrorMessage('Seçtiğiniz konaklama aralığında dolu gün var. Lütfen farklı tarih veya gece sayısı seçin.');
+      setShowErrorModal(true);
+      return;
+    }
+
     try {
       setReservationLoading(true);
 
-      const [year, month, day] = reservationData.checkIn.split('-').map(Number);
-      const checkInDate = new Date(year, month - 1, day);
-
-      const checkOutDate = new Date(checkInDate);
-      checkOutDate.setDate(checkOutDate.getDate() + reservationData.nights);
-
-      const formatDate = (date: Date) => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      };
-
       const reservationPayload = {
         listingId: parseInt(id as string),
-        checkInDate: formatDate(checkInDate),
-        checkOutDate: formatDate(checkOutDate),
+        checkInDate: reservationData.checkIn,
+        checkOutDate: reservationData.checkOut,
         guests: reservationData.guests,
       };
 
@@ -437,6 +536,57 @@ export default function ListingDetailScreen() {
             </Text>
           </View>
 
+          <View style={styles.divider} />
+
+          {/* Reviews */}
+          <View style={styles.reviewsSection}>
+            <View style={styles.reviewsHeader}>
+              <Text style={styles.sectionTitle}>Yorumlar</Text>
+              {reviewSummary.totalReviews > 0 && (
+                <View style={styles.reviewSummaryBadge}>
+                  <Ionicons name="star" size={15} color="#FF385C" />
+                  <Text style={styles.reviewSummaryText}>
+                    {reviewSummary.averageRating.toFixed(1)} · {reviewSummary.totalReviews} yorum
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {reviewsLoading ? (
+              <View style={styles.reviewsLoading}>
+                <ActivityIndicator color="#FF385C" />
+              </View>
+            ) : reviewSummary.reviews.length === 0 ? (
+              <View style={styles.emptyReviews}>
+                <Ionicons name="chatbubble-ellipses-outline" size={28} color="#B0B0B0" />
+                <Text style={styles.emptyReviewsText}>Bu ilan için henüz yorum yok.</Text>
+              </View>
+            ) : (
+              <View style={styles.reviewsList}>
+                {reviewSummary.reviews.map((review) => (
+                  <View key={review.id} style={styles.reviewItem}>
+                    <View style={styles.reviewTopRow}>
+                      <View style={styles.reviewAvatar}>
+                        <Text style={styles.reviewAvatarText}>
+                          {review.guestName.trim().charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={styles.reviewGuestInfo}>
+                        <Text style={styles.reviewGuestName}>{review.guestName}</Text>
+                        <Text style={styles.reviewDate}>{formatReviewDate(review.createdAt)}</Text>
+                      </View>
+                      <View style={styles.reviewRating}>
+                        <Ionicons name="star" size={14} color="#FF385C" />
+                        <Text style={styles.reviewRatingText}>{review.rating}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.reviewComment}>{review.comment}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+
           {/* Bottom Padding */}
           <View style={{ height: 100 }} />
         </View>
@@ -471,49 +621,25 @@ export default function ListingDetailScreen() {
             </View>
 
             <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-              {/* Check-in Date */}
+              {/* Stay Dates */}
               <View style={styles.inputSection}>
-                <Text style={styles.inputLabel}>Giriş Tarihi</Text>
+                <Text style={styles.inputLabel}>Konaklama Tarihleri</Text>
                 <TouchableOpacity
                   style={styles.dateButton}
                   onPress={() => setShowDatePicker(true)}
                 >
                   <MaterialCommunityIcons name="calendar" size={20} color="#FF385C" />
-                  <Text style={styles.dateButtonText}>
-                    {reservationData.checkIn ? dayjs(reservationData.checkIn).format('DD MMMM YYYY') : 'Tarih Seçin'}
-                  </Text>
+                  <View style={styles.dateRangeTextGroup}>
+                    <Text style={styles.dateButtonText}>
+                      {reservationData.checkIn && reservationData.checkOut
+                        ? `${dayjs(reservationData.checkIn).format('DD MMM YYYY')} - ${dayjs(reservationData.checkOut).format('DD MMM YYYY')}`
+                        : 'Giriş ve çıkış tarihi seçin'}
+                    </Text>
+                    {reservationData.nights > 0 && (
+                      <Text style={styles.dateRangeSubText}>{reservationData.nights} gece</Text>
+                    )}
+                  </View>
                 </TouchableOpacity>
-              </View>
-
-              {/* Nights Stepper */}
-              <View style={styles.inputSection}>
-                <Text style={styles.inputLabel}>Gece Sayısı</Text>
-                <View style={styles.stepper}>
-                  <TouchableOpacity
-                    style={styles.stepperButton}
-                    onPress={() =>
-                      reservationData.nights > 1 &&
-                      setReservationData({
-                        ...reservationData,
-                        nights: reservationData.nights - 1,
-                      })
-                    }
-                  >
-                    <Ionicons name="remove" size={20} color="#FF385C" />
-                  </TouchableOpacity>
-                  <Text style={styles.stepperDisplay}>{reservationData.nights}</Text>
-                  <TouchableOpacity
-                    style={styles.stepperButton}
-                    onPress={() =>
-                      setReservationData({
-                        ...reservationData,
-                        nights: reservationData.nights + 1,
-                      })
-                    }
-                  >
-                    <Ionicons name="add" size={20} color="#FF385C" />
-                  </TouchableOpacity>
-                </View>
               </View>
 
               {/* Guests Stepper */}
@@ -615,18 +741,38 @@ export default function ListingDetailScreen() {
                 <View style={styles.datePickerModal}>
                   <View style={styles.datePickerWrapper}>
                     <View style={styles.datePickerHeader}>
-                      <Text style={styles.datePickerTitle}>Giriş Tarihi Seçin</Text>
+                      <Text style={styles.datePickerTitle}>Giriş ve Çıkış Tarihi Seçin</Text>
                       <TouchableOpacity onPress={() => setShowDatePicker(false)}>
                         <Ionicons name="close" size={24} color="#222" />
                       </TouchableOpacity>
                     </View>
 
                     <DatePicker
-                      mode="single"
-                      date={selectedDate}
-                      onChange={handleDateChange}
+                      mode="range"
+                      startDate={selectedStartDate}
+                      endDate={selectedEndDate}
+                      onChange={handleDateRangeChange}
+                      minDate={new Date()}
+                      disabledDates={bookedDates}
+                      styles={{
+                        ...defaultDatePickerStyles,
+                        selected: styles.datePickerSelectedDay,
+                        selected_label: styles.datePickerSelectedLabel,
+                        range_start: styles.datePickerSelectedDay,
+                        range_start_label: styles.datePickerSelectedLabel,
+                        range_end: styles.datePickerSelectedDay,
+                        range_end_label: styles.datePickerSelectedLabel,
+                        range_middle: styles.datePickerRangeMiddle,
+                        range_middle_label: styles.datePickerRangeMiddleLabel,
+                        disabled: styles.datePickerDisabledDay,
+                        disabled_label: styles.datePickerDisabledLabel,
+                        today: styles.datePickerToday,
+                      }}
                     />
-
+                    <View style={styles.datePickerHintRow}>
+                      <View style={styles.bookedDot} />
+                      <Text style={styles.datePickerHintText}>Dolu günler seçilemez.</Text>
+                    </View>
                     <View style={styles.datePickerFooter}>
                       <TouchableOpacity
                         style={styles.datePickerButton}
@@ -916,6 +1062,99 @@ const styles = StyleSheet.create({
     color: '#222',
     lineHeight: 22,
   },
+  reviewsSection: {
+    gap: 16,
+  },
+  reviewsHeader: {
+    gap: 8,
+  },
+  reviewSummaryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 5,
+  },
+  reviewSummaryText: {
+    fontSize: 14,
+    color: '#222',
+    fontWeight: '600',
+  },
+  reviewsLoading: {
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  emptyReviews: {
+    minHeight: 90,
+    borderWidth: 1,
+    borderColor: '#EBEBEB',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 16,
+    backgroundColor: '#FAFAFA',
+  },
+  emptyReviewsText: {
+    color: '#717171',
+    fontSize: 14,
+  },
+  reviewsList: {
+    gap: 14,
+  },
+  reviewItem: {
+    borderWidth: 1,
+    borderColor: '#EBEBEB',
+    borderRadius: 8,
+    padding: 14,
+    backgroundColor: '#fff',
+  },
+  reviewTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  reviewAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#F7F7F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  reviewAvatarText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#222',
+  },
+  reviewGuestInfo: {
+    flex: 1,
+  },
+  reviewGuestName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#222',
+  },
+  reviewDate: {
+    marginTop: 2,
+    fontSize: 12,
+    color: '#717171',
+  },
+  reviewRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  reviewRatingText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#222',
+  },
+  reviewComment: {
+    fontSize: 14,
+    color: '#222',
+    lineHeight: 21,
+  },
   bottomBar: {
     position: 'absolute',
     bottom: 0,
@@ -1012,6 +1251,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#222',
     fontWeight: '500',
+  },
+  dateRangeTextGroup: {
+    flex: 1,
+    gap: 4,
+  },
+  dateRangeSubText: {
+    fontSize: 13,
+    color: '#717171',
   },
   stepperHeader: {
     flexDirection: 'row',
@@ -1140,11 +1387,58 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#222',
   },
+  datePickerSelectedDay: {
+    backgroundColor: '#FF385C',
+    borderRadius: 8,
+  },
+  datePickerSelectedLabel: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  datePickerRangeMiddle: {
+    backgroundColor: '#FFE8EE',
+    borderRadius: 8,
+  },
+  datePickerRangeMiddleLabel: {
+    color: '#222',
+    fontWeight: '600',
+  },
+  datePickerDisabledDay: {
+    backgroundColor: '#F1F1F1',
+    borderRadius: 8,
+    opacity: 1,
+  },
+  datePickerDisabledLabel: {
+    color: '#9A9A9A',
+    textDecorationLine: 'line-through',
+  },
+  datePickerToday: {
+    borderWidth: 1,
+    borderColor: '#FF385C',
+    borderRadius: 8,
+  },
   datePickerFooter: {
     padding: 20,
     borderTopWidth: 1,
     borderTopColor: '#EBEBEB',
     backgroundColor: '#fff',
+  },
+  datePickerHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  bookedDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#B0B0B0',
+  },
+  datePickerHintText: {
+    fontSize: 13,
+    color: '#717171',
   },
   datePickerButton: {
     backgroundColor: '#FF385C',

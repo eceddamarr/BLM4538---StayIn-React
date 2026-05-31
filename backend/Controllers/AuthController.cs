@@ -116,12 +116,29 @@ public class AuthController : ControllerBase
             string.IsNullOrWhiteSpace(request.PasswordConfirm))
             return BadRequest(new { success = false, message = "Lütfen tüm alanları doldurun." });
 
+        request.FullName = request.FullName.Trim();
+        request.Email = request.Email.Trim().ToLowerInvariant();
+        request.PhoneNumber = new string(request.PhoneNumber.Where(char.IsDigit).ToArray());
+
+        var nameParts = request.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (nameParts.Length < 2 || nameParts.Any(part => part.Length < 2))
+            return BadRequest(new { success = false, message = "Ad soyad en az iki kelimeden oluşmalıdır." });
+
+        if (!request.Email.Contains('@') || !request.Email.Contains('.'))
+            return BadRequest(new { success = false, message = "Geçerli bir email adresi girin." });
+
+        if (request.PhoneNumber.Length != 11 || !request.PhoneNumber.StartsWith("0"))
+            return BadRequest(new { success = false, message = "Telefon numarası 0 ile başlamalı ve 11 rakamlı olmalıdır." });
+
+        if (request.Password.Length < 6)
+            return BadRequest(new { success = false, message = "Şifre en az 6 karakter olmalıdır." });
+
         // Şifreler eşleşmiyorsa
         if (request.Password != request.PasswordConfirm)
             return BadRequest(new { success = false, message = "Şifreler eşleşmiyor." });
 
         // Aynı email ile kullanıcı var mı kontrol et
-        var existingUser = await _db.Users.AnyAsync(u => u.Email == request.Email);
+        var existingUser = await _db.Users.AnyAsync(u => u.Email.ToLower() == request.Email);
         if (existingUser)
             return BadRequest(new { success = false, message = "Bu email ile zaten bir kullanıcı mevcut." });
 

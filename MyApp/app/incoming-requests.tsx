@@ -124,6 +124,7 @@ export default function IncomingRequestsScreen() {
   const [error, setError] = useState('');
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [successModal, setSuccessModal] = useState({ visible: false, message: '' });
+  const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
 
   const loadRequests = useCallback(async () => {
     if (!token) {
@@ -164,10 +165,10 @@ export default function IncomingRequestsScreen() {
         setSuccessModal({ visible: true, message: 'Rezervasyon onaylandı!' });
         await loadRequests();
       } else {
-        setError(result.message);
+        setErrorModal({ visible: true, message: result.message });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Bir hata oluştu');
+      setErrorModal({ visible: true, message: err instanceof Error ? err.message : 'Bir hata oluştu' });
     } finally {
       setProcessingId(null);
     }
@@ -181,10 +182,10 @@ export default function IncomingRequestsScreen() {
         setSuccessModal({ visible: true, message: 'Rezervasyon reddedildi!' });
         await loadRequests();
       } else {
-        setError(result.message);
+        setErrorModal({ visible: true, message: result.message });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Bir hata oluştu');
+      setErrorModal({ visible: true, message: err instanceof Error ? err.message : 'Bir hata oluştu' });
     } finally {
       setProcessingId(null);
     }
@@ -202,7 +203,7 @@ export default function IncomingRequestsScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Gelen Talepleri</Text>
+          <Text style={styles.headerTitle}>Gelen Talepler</Text>
         </View>
         <View style={styles.emptyState}>
           <Ionicons name="calendar-outline" size={48} color="#C7C7C7" />
@@ -241,11 +242,34 @@ export default function IncomingRequestsScreen() {
         </View>
       </Modal>
 
+      <Modal
+        visible={errorModal.visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setErrorModal({ visible: false, message: '' })}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconContainer}>
+              <Ionicons name="alert-circle-outline" size={56} color="#D92D20" />
+            </View>
+            <Text style={styles.modalTitle}>Hata</Text>
+            <Text style={styles.modalMessage}>{errorModal.message}</Text>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.errorModalButton]}
+              onPress={() => setErrorModal({ visible: false, message: '' })}
+            >
+              <Text style={styles.modalButtonText}>Tamam</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={28} color="#222" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Gelen Talepleri</Text>
+        <Text style={styles.headerTitle}>Gelen Talepler</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -260,7 +284,7 @@ export default function IncomingRequestsScreen() {
         {requests.length === 0 && !error ? (
           <View style={styles.emptyState}>
             <Ionicons name="calendar-outline" size={48} color="#C7C7C7" />
-            <Text style={styles.emptyTitle}>Henüz talebi yok</Text>
+            <Text style={styles.emptyTitle}>Henüz talep yok</Text>
           </View>
         ) : (
           requests.map((request) => (
@@ -493,6 +517,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: '#34c759',
     alignItems: 'center',
+  },
+  errorModalButton: {
+    backgroundColor: '#D92D20',
   },
   modalButtonText: {
     color: '#fff',

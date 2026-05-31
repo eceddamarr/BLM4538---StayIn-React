@@ -16,10 +16,8 @@ namespace StayIn.Api.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? ResponsedAt { get; set; }
         
-        // Payment bilgileri
+        // Payment status
         public bool IsPaid { get; set; } = false;
-        public DateTime? PaymentDate { get; set; }
-        public string? TransactionId { get; set; }
         
         // Navigation properties
         public Listing? Listing { get; set; }

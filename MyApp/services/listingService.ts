@@ -46,6 +46,14 @@ export interface MyReservation {
   responsedAt?: string | null;
   isPaid: boolean;
   paymentDate?: string | null;
+  review?: ReservationReview | null;
+}
+
+export interface ReservationReview {
+  id: number;
+  rating: number;
+  comment: string;
+  createdAt: string;
 }
 
 export interface IncomingRequest {
@@ -66,6 +74,27 @@ export interface IncomingRequest {
   paymentDate?: string | null;
 }
 
+export interface Review {
+  id: number;
+  listingId: number;
+  guestId: number;
+  guestName: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
+export interface ListingReviewSummary {
+  totalReviews: number;
+  averageRating: number;
+  reviews: Review[];
+}
+
+export interface BookedDateRange {
+  checkInDate: string;
+  checkOutDate: string;
+}
+
 // Transform backend response to Property type
 function transformToProperty(listing: any): Property {
   return {
@@ -78,6 +107,13 @@ function transformToProperty(listing: any): Property {
     image: listing.photoUrls?.[0] || 'https://via.placeholder.com/800x600',
     isFavorite: false,
     userId: listing.userId,
+    placeType: listing.placeType,
+    accommodationType: listing.accommodationType,
+    guests: listing.guests,
+    bedrooms: listing.bedrooms,
+    beds: listing.beds,
+    bathrooms: listing.bathrooms,
+    amenities: listing.amenities || [],
   };
 }
 
@@ -99,6 +135,108 @@ export async function getListingById(id: number): Promise<any> {
   } catch (error) {
     console.error('Error fetching listing:', error);
     throw error;
+  }
+}
+
+export async function getListingBookedRanges(listingId: number): Promise<BookedDateRange[]> {
+  try {
+    const result = await request<{ bookedRanges: BookedDateRange[] }>(
+      `/Reservation/listing/${listingId}/booked-ranges`
+    );
+    return result.bookedRanges || [];
+  } catch (error) {
+    console.error('Error fetching booked ranges:', error);
+    return [];
+  }
+}
+
+// Get reviews for a listing
+export async function getListingReviews(listingId: number): Promise<ListingReviewSummary> {
+  try {
+    const result = await request<{ success: boolean; data: ListingReviewSummary }>(
+      `/Reviews/listing/${listingId}`
+    );
+
+    return result.data || { totalReviews: 0, averageRating: 0, reviews: [] };
+  } catch (error) {
+    console.error('Error fetching listing reviews:', error);
+    return { totalReviews: 0, averageRating: 0, reviews: [] };
+  }
+}
+
+export async function createReview(
+  reservationId: number,
+  rating: number,
+  comment: string,
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const result = await request<{ message: string }>(
+      '/Reviews',
+      {
+        method: 'POST',
+        body: JSON.stringify({ reservationId, rating, comment }),
+      },
+      token
+    );
+
+    return { success: true, message: result.message || 'Yorum eklendi' };
+  } catch (error) {
+    console.error('Error creating review:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Yorum eklenemedi',
+    };
+  }
+}
+
+export async function updateReview(
+  reviewId: number,
+  reservationId: number,
+  rating: number,
+  comment: string,
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const result = await request<{ message: string }>(
+      `/Reviews/${reviewId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ reservationId, rating, comment }),
+      },
+      token
+    );
+
+    return { success: true, message: result.message || 'Yorum güncellendi' };
+  } catch (error) {
+    console.error('Error updating review:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Yorum güncellenemedi',
+    };
+  }
+}
+
+export async function deleteReview(
+  reviewId: number,
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const result = await request<{ message: string }>(
+      `/Reviews/${reviewId}`,
+      {
+        method: 'DELETE',
+      },
+      token
+    );
+
+    return { success: true, message: result.message || 'Yorum silindi' };
+  } catch (error) {
+    console.error('Error deleting review:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Yorum silinemedi',
+    };
   }
 }
 

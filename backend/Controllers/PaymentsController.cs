@@ -110,8 +110,6 @@ public class PaymentsController : ControllerBase
 
             // Rezervasyonu güncelle
             reservation.IsPaid = true;
-            reservation.PaymentDate = DateTime.UtcNow;
-            reservation.TransactionId = transactionId;
 
             await _db.SaveChangesAsync();
 

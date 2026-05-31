@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -11,13 +11,21 @@ import {
   TouchableOpacity,
   View,
   Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomNav from '../components/BottomNav';
 import PaymentModal from '../components/PaymentModal';
 import { useAuth } from '@/context/AuthContext';
 import { transformImageUrl } from '@/services/apiClient';
-import { getMyReservations, MyReservation, cancelReservation } from '@/services/listingService';
+import {
+  getMyReservations,
+  MyReservation,
+  cancelReservation,
+  createReview,
+  updateReview,
+  deleteReview,
+} from '@/services/listingService';
 
 const statusMeta: Record<string, { label: string; color: string; bg: string; border: string }> = {
   Pending: { label: 'Beklemede', color: '#FF9500', bg: '#FFF7E8', border: '#FF9500' },
@@ -34,16 +42,39 @@ function formatDate(value: string) {
   return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
 }
 
+function hasReservationEnded(checkOutDate: string) {
+  const date = new Date(checkOutDate);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+
+  return date < today;
+}
+
+function formatReviewDate(value: string) {
+  return formatDate(value);
+}
+
 function ReservationCard({
   reservation,
   onPay,
   onCancel,
+  onCreateReview,
+  onEditReview,
+  onDeleteReview,
   isProcessing,
+  hasReviewForListing,
 }: {
   reservation: MyReservation;
   onPay: () => void;
   onCancel: () => void;
+  onCreateReview: () => void;
+  onEditReview: () => void;
+  onDeleteReview: () => void;
   isProcessing: boolean;
+  hasReviewForListing: boolean;
 }) {
   const meta = (() => {
     let displayStatus = reservation.status;
@@ -55,6 +86,13 @@ function ReservationCard({
   const imageUrl = reservation.listingPhotoUrl
     ? transformImageUrl(reservation.listingPhotoUrl)
     : 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=900';
+  const reservationEnded = hasReservationEnded(reservation.checkOutDate);
+  const paymentExpired = reservation.status === 'Approved' && !reservation.isPaid && reservationEnded;
+  const canPay = reservation.status === 'Approved' && !reservation.isPaid && !reservationEnded;
+  const canCancel =
+    (reservation.status === 'Approved' || reservation.status === 'Pending') &&
+    !reservationEnded;
+  const canReview = reservation.status === 'Approved' && reservationEnded && !hasReviewForListing;
 
   return (
     <View style={styles.card}>
@@ -84,9 +122,15 @@ function ReservationCard({
           <Text style={styles.price}>₺{reservation.totalPrice.toLocaleString('tr-TR')}</Text>
         </View>
 
-        {(reservation.status === 'Approved' || reservation.status === 'Pending') && (
+        {(canPay || canCancel || paymentExpired) && (
           <View style={styles.paymentButtonRow}>
-            {reservation.status === 'Approved' && !reservation.isPaid && (
+            {paymentExpired && (
+              <View style={styles.paymentExpiredNotice}>
+                <Ionicons name="time-outline" size={16} color="#8A5A00" />
+                <Text style={styles.paymentExpiredText}>Ödeme süresi geçti</Text>
+              </View>
+            )}
+            {canPay && (
               <TouchableOpacity
                 style={[styles.paymentButton, styles.payButton]}
                 onPress={onPay}
@@ -102,16 +146,63 @@ function ReservationCard({
                 )}
               </TouchableOpacity>
             )}
+            {canCancel && (
+              <TouchableOpacity
+                style={[styles.paymentButton, styles.cancelPaymentButton]}
+                onPress={onCancel}
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <ActivityIndicator color="#FF5A5F" size="small" />
+                ) : (
+                  <Text style={styles.cancelPaymentButtonText}>Rezervasyonu İptal Et</Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {reservation.review && (
+          <View style={styles.reviewBox}>
+            <View style={styles.reviewHeader}>
+              <Text style={styles.reviewTitle}>Yorumun</Text>
+              <View style={styles.reviewRating}>
+                <Ionicons name="star" size={15} color="#FF5A5F" />
+                <Text style={styles.reviewRatingText}>{reservation.review.rating}</Text>
+              </View>
+            </View>
+            <Text style={styles.reviewDate}>{formatReviewDate(reservation.review.createdAt)}</Text>
+            <Text style={styles.reviewComment}>{reservation.review.comment}</Text>
+            <View style={styles.reviewActions}>
+              <TouchableOpacity
+                style={[styles.reviewActionButton, styles.reviewEditButton]}
+                onPress={onEditReview}
+                disabled={isProcessing}
+              >
+                <Ionicons name="create-outline" size={16} color="#222" />
+                <Text style={styles.reviewEditButtonText}>Düzenle</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.reviewActionButton, styles.reviewDeleteButton]}
+                onPress={onDeleteReview}
+                disabled={isProcessing}
+              >
+                <Ionicons name="trash-outline" size={16} color="#D92D20" />
+                <Text style={styles.reviewDeleteButtonText}>Sil</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {canReview && (
+          <View style={styles.reviewPromptBox}>
             <TouchableOpacity
-              style={[styles.paymentButton, styles.cancelPaymentButton]}
-              onPress={onCancel}
+              style={styles.reviewCreateButton}
+              onPress={onCreateReview}
               disabled={isProcessing}
             >
-              {isProcessing ? (
-                <ActivityIndicator color="#FF5A5F" size="small" />
-              ) : (
-                <Text style={styles.cancelPaymentButtonText}>Rezervasyonu İptal Et</Text>
-              )}
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color="#fff" />
+              <Text style={styles.reviewCreateButtonText}>Yorum Yap</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -130,6 +221,23 @@ export default function ReservationsScreen() {
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [successModal, setSuccessModal] = useState({ visible: false, message: '' });
   const [paymentModal, setPaymentModal] = useState({ visible: false, reservationId: 0, amount: 0 });
+  const [reviewModal, setReviewModal] = useState({
+    visible: false,
+    mode: 'create' as 'create' | 'edit',
+    reservationId: 0,
+    reviewId: 0,
+    rating: 5,
+    comment: '',
+  });
+  const [deleteReviewModal, setDeleteReviewModal] = useState({
+    visible: false,
+    reservationId: 0,
+    reviewId: 0,
+  });
+  const reviewedListingIds = useMemo(
+    () => new Set(reservations.filter((reservation) => reservation.review).map((reservation) => reservation.listingId)),
+    [reservations]
+  );
 
   const loadReservations = useCallback(async () => {
     if (!token) {
@@ -170,7 +278,12 @@ export default function ReservationsScreen() {
     });
   };
 
-  const handleCancel = async (reservationId: number) => {
+  const handleCancel = async (reservation: MyReservation) => {
+    if (hasReservationEnded(reservation.checkOutDate)) {
+      return;
+    }
+
+    const reservationId = reservation.id;
     setProcessingId(reservationId);
     try {
       const response = await cancelReservation(reservationId, token!);
@@ -187,6 +300,106 @@ export default function ReservationsScreen() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Bir hata oluştu');
+      setProcessingId(null);
+    }
+  };
+
+  const openReviewEditor = (reservation: MyReservation) => {
+    if (!reservation.review) return;
+
+    setReviewModal({
+      visible: true,
+      mode: 'edit',
+      reservationId: reservation.id,
+      reviewId: reservation.review.id,
+      rating: reservation.review.rating,
+      comment: reservation.review.comment,
+    });
+  };
+
+  const openReviewCreator = (reservation: MyReservation) => {
+    setReviewModal({
+      visible: true,
+      mode: 'create',
+      reservationId: reservation.id,
+      reviewId: 0,
+      rating: 5,
+      comment: '',
+    });
+  };
+
+  const closeReviewModal = () => {
+    setReviewModal({
+      visible: false,
+      mode: 'create',
+      reservationId: 0,
+      reviewId: 0,
+      rating: 5,
+      comment: '',
+    });
+  };
+
+  const submitReview = async () => {
+    if (!reviewModal.comment.trim()) {
+      setError('Yorum alanı boş bırakılamaz.');
+      return;
+    }
+
+    setProcessingId(reviewModal.reservationId);
+    try {
+      const response =
+        reviewModal.mode === 'create'
+          ? await createReview(
+              reviewModal.reservationId,
+              reviewModal.rating,
+              reviewModal.comment.trim(),
+              token!
+            )
+          : await updateReview(
+              reviewModal.reviewId,
+              reviewModal.reservationId,
+              reviewModal.rating,
+              reviewModal.comment.trim(),
+              token!
+            );
+
+      if (response.success) {
+        closeReviewModal();
+        setSuccessModal({
+          visible: true,
+          message: reviewModal.mode === 'create' ? 'Yorumun eklendi.' : 'Yorumun güncellendi.',
+        });
+        await loadReservations();
+      } else {
+        setError(response.message);
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : reviewModal.mode === 'create'
+            ? 'Yorum eklenemedi.'
+            : 'Yorum güncellenemedi.'
+      );
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const confirmDeleteReview = async () => {
+    setProcessingId(deleteReviewModal.reservationId);
+    try {
+      const response = await deleteReview(deleteReviewModal.reviewId, token!);
+      if (response.success) {
+        setDeleteReviewModal({ visible: false, reservationId: 0, reviewId: 0 });
+        setSuccessModal({ visible: true, message: 'Yorumun silindi.' });
+        await loadReservations();
+      } else {
+        setError(response.message);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Yorum silinemedi.');
+    } finally {
       setProcessingId(null);
     }
   };
@@ -257,6 +470,102 @@ export default function ReservationsScreen() {
         token={token!}
       />
 
+      <Modal
+        visible={reviewModal.visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeReviewModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {reviewModal.mode === 'create' ? 'Yorum Yap' : 'Yorumu Düzenle'}
+            </Text>
+            <View style={styles.ratingPicker}>
+              {[1, 2, 3, 4, 5].map((rating) => (
+                <TouchableOpacity
+                  key={rating}
+                  style={styles.ratingButton}
+                  onPress={() => setReviewModal((prev) => ({ ...prev, rating }))}
+                >
+                  <Ionicons
+                    name={rating <= reviewModal.rating ? 'star' : 'star-outline'}
+                    size={30}
+                    color="#FF5A5F"
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TextInput
+              style={styles.reviewInput}
+              value={reviewModal.comment}
+              onChangeText={(comment) => setReviewModal((prev) => ({ ...prev, comment }))}
+              multiline
+              textAlignVertical="top"
+              placeholder="Yorumunu yaz"
+              placeholderTextColor="#999"
+            />
+            <View style={styles.reviewModalActions}>
+              <TouchableOpacity
+                style={[styles.reviewModalButton, styles.reviewModalCancelButton]}
+                onPress={closeReviewModal}
+                disabled={processingId === reviewModal.reservationId}
+              >
+                <Text style={styles.reviewModalCancelText}>Vazgeç</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.reviewModalButton, styles.reviewModalSaveButton]}
+                onPress={submitReview}
+                disabled={processingId === reviewModal.reservationId}
+              >
+                {processingId === reviewModal.reservationId ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.reviewModalSaveText}>Kaydet</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={deleteReviewModal.visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setDeleteReviewModal({ visible: false, reservationId: 0, reviewId: 0 })}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconContainer}>
+              <Ionicons name="trash-outline" size={52} color="#D92D20" />
+            </View>
+            <Text style={styles.modalTitle}>Yorum Silinsin mi?</Text>
+            <Text style={styles.modalMessage}>Bu yorumu sildiğinde ilan sayfasından kaldırılacak.</Text>
+            <View style={styles.reviewModalActions}>
+              <TouchableOpacity
+                style={[styles.reviewModalButton, styles.reviewModalCancelButton]}
+                onPress={() => setDeleteReviewModal({ visible: false, reservationId: 0, reviewId: 0 })}
+                disabled={processingId === deleteReviewModal.reservationId}
+              >
+                <Text style={styles.reviewModalCancelText}>Vazgeç</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.reviewModalButton, styles.reviewDeleteConfirmButton]}
+                onPress={confirmDeleteReview}
+                disabled={processingId === deleteReviewModal.reservationId}
+              >
+                {processingId === deleteReviewModal.reservationId ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.reviewDeleteConfirmText}>Sil</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Rezervasyonlarım</Text>
       </View>
@@ -280,8 +589,19 @@ export default function ReservationsScreen() {
               key={reservation.id}
               reservation={reservation}
               onPay={() => handlePay(reservation)}
-              onCancel={() => handleCancel(reservation.id)}
+              onCancel={() => handleCancel(reservation)}
+              onCreateReview={() => openReviewCreator(reservation)}
+              onEditReview={() => openReviewEditor(reservation)}
+              onDeleteReview={() => {
+                if (!reservation.review) return;
+                setDeleteReviewModal({
+                  visible: true,
+                  reservationId: reservation.id,
+                  reviewId: reservation.review.id,
+                });
+              }}
               isProcessing={processingId === reservation.id}
+              hasReviewForListing={reviewedListingIds.has(reservation.listingId)}
             />
           ))
         )}
@@ -453,6 +773,177 @@ const styles = StyleSheet.create({
     color: '#FF5A5F',
     fontSize: 16,
     fontWeight: '700',
+  },
+  paymentExpiredNotice: {
+    width: '100%',
+    minHeight: 42,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#F2C94C',
+    backgroundColor: '#FFF8E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 12,
+  },
+  paymentExpiredText: {
+    color: '#8A5A00',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  reviewBox: {
+    marginTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    paddingTop: 14,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  reviewTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#222',
+  },
+  reviewRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  reviewRatingText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#222',
+  },
+  reviewDate: {
+    fontSize: 12,
+    color: '#717171',
+    marginBottom: 8,
+  },
+  reviewComment: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 20,
+  },
+  reviewActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  reviewActionButton: {
+    flex: 1,
+    height: 40,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  reviewEditButton: {
+    backgroundColor: '#F7F7F7',
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+  },
+  reviewEditButtonText: {
+    color: '#222',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  reviewDeleteButton: {
+    backgroundColor: '#FFF5F5',
+    borderWidth: 1,
+    borderColor: '#F4B4B4',
+  },
+  reviewDeleteButtonText: {
+    color: '#D92D20',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  reviewPromptBox: {
+    marginTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    paddingTop: 14,
+  },
+  reviewCreateButton: {
+    width: '100%',
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: '#FF5A5F',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  reviewCreateButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  ratingPicker: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  ratingButton: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewInput: {
+    minHeight: 120,
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: '#222',
+    backgroundColor: '#FAFAFA',
+  },
+  reviewModalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 18,
+  },
+  reviewModalButton: {
+    flex: 1,
+    height: 44,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewModalCancelButton: {
+    backgroundColor: '#F7F7F7',
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+  },
+  reviewModalCancelText: {
+    color: '#222',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  reviewModalSaveButton: {
+    backgroundColor: '#FF5A5F',
+  },
+  reviewModalSaveText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  reviewDeleteConfirmButton: {
+    backgroundColor: '#D92D20',
+  },
+  reviewDeleteConfirmText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
   },
   modalOverlay: {
     flex: 1,

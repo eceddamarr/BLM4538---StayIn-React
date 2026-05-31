@@ -90,6 +90,15 @@ if (args.Contains("--seed-reservations"))
     return;
 }
 
+if (args.Contains("--seed-reviews"))
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await SeedReviews.SeedData(db);
+    Console.WriteLine("Reviews seeded successfully!");
+    return;
+}
+
 // Middleware sırası
 if (app.Environment.IsDevelopment())
 {

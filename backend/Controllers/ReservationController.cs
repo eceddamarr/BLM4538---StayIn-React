@@ -61,15 +61,16 @@ namespace StayIn.Api.Controllers
                     return BadRequest(new { message = "Kendi ilanınıza rezervasyon yapamazsınız." });
                 }
 
-                var existingReservation = await _context.Reservations
-                .Where(r => r.GuestId == guestId &&
-                        r.ListingId == request.ListingId &&
-                        (r.Status == "Pending" || r.Status == "Approved"))
-                .FirstOrDefaultAsync();
+                var hasOwnDateConflict = await _context.Reservations.AnyAsync(r =>
+                    r.GuestId == guestId &&
+                    r.ListingId == request.ListingId &&
+                    (r.Status == "Pending" || r.Status == "Approved") &&
+                    checkInDate < r.CheckOutDate &&
+                    checkOutDate > r.CheckInDate);
 
-                if (existingReservation != null)
+                if (hasOwnDateConflict)
                 {
-                    return BadRequest(new { message = "Bu ilana zaten aktif bir rezervasyonunuz var" });
+                    return BadRequest(new { message = "Bu ilan için seçtiğiniz tarihlerde zaten aktif bir rezervasyon talebiniz var." });
                 }
 
                 // *** YENİ: Tarih çakışması kontrolü ***
@@ -107,6 +108,17 @@ namespace StayIn.Api.Controllers
                 if (request.Guests > listing.Guests)
                 {
                     return BadRequest(new { message = $"Bu ilan maksimum {listing.Guests} konuk kabul ediyor." });
+                }
+
+                var hasBookedDateConflict = await _context.Reservations.AnyAsync(r =>
+                    r.ListingId == request.ListingId &&
+                    (r.Status == "Approved" || r.Status == "Paid") &&
+                    checkInDate.Date < r.CheckOutDate.Date &&
+                    checkOutDate.Date > r.CheckInDate.Date);
+
+                if (hasBookedDateConflict)
+                {
+                    return BadRequest(new { message = "Seçtiğiniz tarihler için bu ilan zaten rezerve edilmiş. Lütfen farklı tarihler seçin." });
                 }
 
                 // Toplam gece ve fiyat hesapla
@@ -159,6 +171,7 @@ namespace StayIn.Api.Controllers
                 var reservations = await _context.Reservations
                     .Include(r => r.Listing)
                     .Include(r => r.Host)
+                    .Include(r => r.Payment)
                     .Where(r => r.GuestId == guestId)
                     .OrderByDescending(r => r.CreatedAt)
                     .Select(r => new
@@ -176,7 +189,17 @@ namespace StayIn.Api.Controllers
                         r.CreatedAt,
                         r.ResponsedAt,
                         r.IsPaid,          
-                        r.PaymentDate
+                        PaymentDate = r.Payment != null ? (DateTime?)r.Payment.PaymentDate : null,
+                        Review = _context.Reviews
+                            .Where(review => review.ReservationId == r.Id && review.GuestId == guestId)
+                            .Select(review => new
+                            {
+                                review.Id,
+                                review.Rating,
+                                review.Comment,
+                                review.CreatedAt
+                            })
+                            .FirstOrDefault()
                     })
                     .ToListAsync();
 
@@ -206,6 +229,7 @@ namespace StayIn.Api.Controllers
                 var requests = await _context.Reservations
                     .Include(r => r.Listing)
                     .Include(r => r.Guest)
+                    .Include(r => r.Payment)
                     .Where(r => r.HostId == hostId)
                     .OrderByDescending(r => r.CreatedAt)
                     .Select(r => new
@@ -224,7 +248,7 @@ namespace StayIn.Api.Controllers
                         r.CreatedAt,
                         r.ResponsedAt,
                         r.IsPaid,          
-                        r.PaymentDate
+                        PaymentDate = r.Payment != null ? (DateTime?)r.Payment.PaymentDate : null
                     })
                     .ToListAsync();
 
@@ -265,6 +289,18 @@ namespace StayIn.Api.Controllers
                 if (reservation.Status != "Pending")
                 {
                     return BadRequest(new { message = "Bu rezervasyon zaten cevaplanmış." });
+                }
+
+                var hasConflict = await _context.Reservations.AnyAsync(r =>
+                    r.Id != reservation.Id &&
+                    r.ListingId == reservation.ListingId &&
+                    (r.Status == "Approved" || r.Status == "Paid") &&
+                    reservation.CheckInDate.Date < r.CheckOutDate.Date &&
+                    reservation.CheckOutDate.Date > r.CheckInDate.Date);
+
+                if (hasConflict)
+                {
+                    return BadRequest(new { message = "Bu tarih aralığında ilan için zaten onaylanmış bir rezervasyon var. Bu talep onaylanamaz." });
                 }
 
                 reservation.Status = "Approved";
@@ -361,6 +397,48 @@ namespace StayIn.Api.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "Rezervasyon iptal edilemedi.", error = ex.Message });
+            }
+        }
+
+
+        // GET: api/Reservation/listing/{listingId}/booked-ranges - İlanın dolu tarih aralıkları
+        [HttpGet("listing/{listingId}/booked-ranges")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetBookedRanges(int listingId)
+        {
+            try
+            {
+                var listingExists = await _context.Listings.AnyAsync(l => l.Id == listingId && !l.IsArchived);
+                if (!listingExists)
+                {
+                    return NotFound(new { message = "İlan bulunamadı." });
+                }
+
+                var today = DateTime.Today;
+                var bookedReservations = await _context.Reservations
+                    .Where(r =>
+                        r.ListingId == listingId &&
+                        (r.Status == "Approved" || r.Status == "Paid") &&
+                        r.CheckOutDate.Date >= today)
+                    .OrderBy(r => r.CheckInDate)
+                    .Select(r => new
+                    {
+                        r.CheckInDate,
+                        r.CheckOutDate
+                    })
+                    .ToListAsync();
+
+                var bookedRanges = bookedReservations.Select(r => new
+                {
+                    checkInDate = r.CheckInDate.ToString("yyyy-MM-dd"),
+                    checkOutDate = r.CheckOutDate.ToString("yyyy-MM-dd")
+                });
+
+                return Ok(new { bookedRanges });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Dolu tarihler getirilemedi.", error = ex.Message });
             }
         }
 

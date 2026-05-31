@@ -24,6 +24,15 @@ export default function LoginScreen() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  function goBackOrHome() {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace('/');
+  }
+
   async function handleLogin() {
     if (!email.trim() || !password) {
       showAlert({
@@ -41,7 +50,7 @@ export default function LoginScreen() {
         email: email.trim(),
         password,
       });
-      router.back();
+      goBackOrHome();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Giriş başarısız.';
       showAlert({
@@ -63,7 +72,7 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.closeButton} onPress={goBackOrHome}>
             <Ionicons name="close" size={24} color="#303030" />
           </TouchableOpacity>
         </View>

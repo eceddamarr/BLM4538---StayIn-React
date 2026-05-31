@@ -60,10 +60,12 @@ public class ReviewsController : ControllerBase
         if (reservation.CheckOutDate > DateTime.UtcNow)
             return BadRequest(new { success = false, message = "Sadece tamamlanmış rezervasyonlar için yorum yapılabilir." });
 
-        // Bu rezervasyon için daha önce yorum yapılmış mı?
-        var existingReview = await _db.Reviews.AnyAsync(r => r.ReservationId == request.ReservationId);
+        // Bu guest bu ilan için daha önce yorum yapmış mı?
+        var existingReview = await _db.Reviews.AnyAsync(r =>
+            r.ListingId == reservation.ListingId &&
+            r.GuestId == userId);
         if (existingReview)
-            return BadRequest(new { success = false, message = "Bu rezervasyon için zaten yorum yapmışsınız." });
+            return BadRequest(new { success = false, message = "Bu ilan için zaten yorum yapmışsınız." });
 
         // Yorum oluştur
         var review = new Review

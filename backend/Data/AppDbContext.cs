@@ -20,9 +20,6 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // Şuanlik sadece Listings
-        modelBuilder.Ignore<Review>();
-
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Email)
             .IsUnique();
@@ -61,6 +58,28 @@ public class AppDbContext : DbContext
             .HasOne(p => p.Reservation)
             .WithOne(r => r.Payment)
             .HasForeignKey<Payment>(p => p.ReservationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Review>()
+            .HasIndex(r => new { r.ListingId, r.GuestId })
+            .IsUnique();
+
+        modelBuilder.Entity<Review>()
+            .HasOne(r => r.Listing)
+            .WithMany(l => l.Reviews)
+            .HasForeignKey(r => r.ListingId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Review>()
+            .HasOne(r => r.Guest)
+            .WithMany()
+            .HasForeignKey(r => r.GuestId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Review>()
+            .HasOne(r => r.Reservation)
+            .WithMany()
+            .HasForeignKey(r => r.ReservationId)
             .OnDelete(DeleteBehavior.Restrict);
 
         // User Favorites kolonunu JSON olarak sakla
@@ -128,6 +147,86 @@ public class AppDbContext : DbContext
                 FullName = "Can Öztürk",
                 Email = "can@stayin.dev",
                 PhoneNumber = "05368889900",
+                PasswordHash = "$2a$11$5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5OqK5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3",
+                Role = "User",
+                Favorites = new List<int>()
+            },
+            new User
+            {
+                Id = 6,
+                FullName = "Ece Damar",
+                Email = "ece@stayin.dev",
+                PhoneNumber = "05366666666",
+                PasswordHash = "$2a$11$5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5OqK5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3",
+                Role = "User",
+                Favorites = new List<int> { 20, 18, 15 }
+            },
+            new User
+            {
+                Id = 7,
+                FullName = "Sevgin Açık",
+                Email = "hevin@stayin.dev",
+                PhoneNumber = "05555555555",
+                PasswordHash = "$2a$11$5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5OqK5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3",
+                Role = "User",
+                Favorites = new List<int> { 24, 2, 30 }
+            },
+            new User
+            {
+                Id = 8,
+                FullName = "Merve Çetin",
+                Email = "merve@stayin.dev",
+                PhoneNumber = "05344444444",
+                PasswordHash = "$2a$11$5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5OqK5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3",
+                Role = "User",
+                Favorites = new List<int>()
+            },
+            new User
+            {
+                Id = 9,
+                FullName = "Berkay Yıldız",
+                Email = "berkay@stayin.dev",
+                PhoneNumber = "05361111111",
+                PasswordHash = "$2a$11$5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5OqK5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3",
+                Role = "User",
+                Favorites = new List<int> { 28 }
+            },
+            new User
+            {
+                Id = 10,
+                FullName = "Ceyda Demir",
+                Email = "ceyda@stayin.dev",
+                PhoneNumber = "05377777777",
+                PasswordHash = "$2a$11$5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5OqK5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3",
+                Role = "User",
+                Favorites = new List<int>()
+            },
+            new User
+            {
+                Id = 12,
+                FullName = "Aleyna Taşdemir",
+                Email = "aleyna@stayin.dev",
+                PhoneNumber = "05441785678",
+                PasswordHash = "$2a$11$5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5OqK5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3",
+                Role = "User",
+                Favorites = new List<int>()
+            },
+            new User
+            {
+                Id = 13,
+                FullName = "Fatma Demir",
+                Email = "fatma@stayin.dev",
+                PhoneNumber = "05431234567",
+                PasswordHash = "$2a$11$5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5OqK5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3",
+                Role = "User",
+                Favorites = new List<int>()
+            },
+            new User
+            {
+                Id = 14,
+                FullName = "Elif Gün",
+                Email = "elif@stayin.dev",
+                PhoneNumber = "0565 456 77 88",
                 PasswordHash = "$2a$11$5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5OqK5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3",
                 Role = "User",
                 Favorites = new List<int>()
